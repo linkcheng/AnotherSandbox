@@ -1,0 +1,180 @@
+# AI 个人沙箱 P1 编排
+# 详见 specs/001-sandbox-p1-stack/spec.md（FR-005~FR-015, FR-022~FR-025）
+#      specs/001-sandbox-p1-stack/contracts/nginx-routes.md
+#      .archive/sandbox-design.md §12
+#
+# 设计原则：
+# - 仅 cap-nginx 对外暴露端口（FR-005/FR-006）
+# - 所有服务 cap_drop: [ALL] + no-new-privileges（FR-007）
+# - mem_limit 按服务分级（FR-008）
+# - WORKSPACE_DIR bind mount 到 /workspace，按子目录 rw/ro 区分（FR-011/FR-012）
+name: sandbox
+
+networks:
+  sandbox-net:
+    driver: bridge
+    internal: false
+
+volumes:
+  x11-unix:  # X server socket 跨容器共享（cap-browser → cap-agent）
+    driver: local
+
+services:
+  cap-nginx:
+    build: ./cap-nginx
+    image: sandbox/cap-nginx:latest
+    container_name: cap-nginx
+    ports:
+      - "${PORT:-80}:80"
+    depends_on:
+      cap-agent: {condition: service_healthy}
+      cap-browser: {condition: service_healthy}
+      cap-terminal: {condition: service_healthy}
+      cap-code: {condition: service_healthy}
+      cap-jupyter: {condition: service_healthy}
+      cap-mcp: {condition: service_healthy}
+    networks: [sandbox-net]
+    mem_limit: 64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://cap-agent:9000/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-agent:
+    build: ./cap-agent
+    image: sandbox/cap-agent:latest
+    container_name: cap-agent
+    expose: ["9000"]
+    environment:
+      CAP_AGENT_TERMINAL_URL: http://cap-terminal:7682
+      CAP_AGENT_BROWSER_CDP_URL: http://cap-browser:9222
+      CAP_AGENT_GUI_DISPLAY: ":1"
+      CAP_AGENT_AUTH_MODE: none
+    volumes:
+      - x11-unix:/tmp/.X11-unix:ro
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}:/workspace:ro
+    networks: [sandbox-net]
+    mem_limit: 384m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:9000/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-browser:
+    build: ./cap-browser
+    image: sandbox/cap-browser:latest
+    container_name: cap-browser
+    expose: ["9222", "6080"]
+    environment:
+      DISPLAY: ":1"
+      CHROMIUM_FLAGS: "--no-sandbox --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0"
+    volumes:
+      - x11-unix:/tmp/.X11-unix
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/.chromium:/workspace/.chromium:rw
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}:/workspace:ro
+    networks: [sandbox-net]
+    mem_limit: 2g
+    shm_size: 1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9222/json/version"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  cap-terminal:
+    build: ./cap-terminal
+    image: sandbox/cap-terminal:latest
+    container_name: cap-terminal
+    expose: ["7681", "7682"]
+    volumes:
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/code:/workspace/code:ro
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/shared:/workspace/shared:ro
+    networks: [sandbox-net]
+    mem_limit: 512m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:7682/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-code:
+    build: ./cap-code
+    image: sandbox/cap-code:latest
+    container_name: cap-code
+    expose: ["8081"]
+    volumes:
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/code:/workspace/code:rw
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/.vscode:/workspace/.vscode:rw
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/shared:/workspace/shared:ro
+    networks: [sandbox-net]
+    mem_limit: 1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  cap-jupyter:
+    build: ./cap-jupyter
+    image: sandbox/cap-jupyter:latest
+    container_name: cap-jupyter
+    expose: ["8888"]
+    volumes:
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/notebooks:/workspace/notebooks:rw
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/.jupyter:/workspace/.jupyter:rw
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/shared:/workspace/shared:rw
+    networks: [sandbox-net]
+    mem_limit: 2g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/api/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  cap-mcp:
+    build: ./cap-mcp
+    image: sandbox/cap-mcp:latest
+    container_name: cap-mcp
+    expose: ["8940"]
+    environment:
+      CAP_MCP_TERMINAL_URL: http://cap-terminal:7682
+      CAP_MCP_BROWSER_CDP_URL: http://cap-browser:9222
+      CAP_MCP_AGENT_URL: http://cap-agent:9000
+    volumes:
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/code:/workspace/code:ro
+      - ${WORKSPACE_DIR:-~/sandbox-workspace}/shared:/workspace/shared:ro
+    depends_on:
+      cap-agent: {condition: service_healthy}
+      cap-browser: {condition: service_healthy}
+      cap-terminal: {condition: service_healthy}
+    networks: [sandbox-net]
+    mem_limit: 768m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8940/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

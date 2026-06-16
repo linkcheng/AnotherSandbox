@@ -1,0 +1,4 @@
+"""cap-terminal 包根。"""
+from __future__ import annotations
+
+__version__ = "0.1.0"

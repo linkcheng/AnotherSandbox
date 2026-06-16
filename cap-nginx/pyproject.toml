@@ -1,0 +1,17 @@
+[project]
+name = "cap-nginx"
+version = "0.1.0"
+description = "AI 个人沙箱 cap-nginx：HTTP/WebSocket 反向代理"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.0"]
+
+# cap-nginx 无 Python 源码（仅 nginx.conf + contract test），
+# 故声明为 application 而非可打包的 wheel。
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"

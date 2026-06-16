@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.python-version
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+.pnpm-debug.log*
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.workbuddy/
+*.swp
+*.swo
+
+# Workspace 数据（用户文件，不入版本控制）
+workspace/
+sandbox-workspace/
+
+# 日志
+*.log
+logs/
+
+# 临时
+.DS_Store
+tmp/
+
+# speckit
+.specify/*.json
