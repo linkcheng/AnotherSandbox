@@ -1,0 +1,53 @@
+# Launcher nginx 配置模板（envsubst 渲染 ${ORCHESTRATOR_UPSTREAM} / ${LAUNCHER_PORT}）
+# specs/003-sandbox-p3-launcher/plan.md T008
+# - SPA 托管（try_files 回落 index.html）
+# - /api/ 反代 orchestrator（cookie 透传）
+# - /ws/<slug>/ 反代 workspace cap-nginx（批次3 落地 auth_request + WebSocket）
+
+server {
+    listen ${LAUNCHER_PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # 上游 orchestrator
+    set $orchestrator ${ORCHESTRATOR_UPSTREAM};
+
+    # SPA：非文件请求回落 index.html（react-router 前端路由）
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 静态资源长缓存（vite 产物带 hash）
+    location ~* \.(?:js|css|woff2?|png|jpe?g|svg|ico)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        try_files $uri =404;
+    }
+
+    # /api/ → orchestrator:8000（cookie 透传，HTTP/1.1 keep-alive）
+    location /api/ {
+        proxy_pass http://$orchestrator;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Requested-With $http_x_requested_with;
+        proxy_pass_request_cookies on;
+        proxy_read_timeout 60s;
+    }
+
+    # /ws/<slug>/ → workspace cap-nginx（批次3：auth_request + WebSocket Upgrade 透传）
+    # 占位：本批次仅留路由骨架，实际反代与鉴权在 P3-US3（T045）落地
+    # location ~ ^/ws/(?<slug>[a-z0-9-]+)/(.*)$ {
+    #     resolver 127.0.0.11 valid=30s;
+    #     proxy_pass http://$slug-cap-nginx/$2$is_args$args;
+    #     proxy_http_version 1.1;
+    #     proxy_set_header Upgrade $http_upgrade;
+    #     proxy_set_header Connection "upgrade";
+    #     proxy_read_timeout 3600s;
+    #     proxy_buffering off;
+    # }
+}
