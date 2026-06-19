@@ -1,19 +1,31 @@
 # AI 个人沙箱（MySandbox）
 
-一个跑在你本机的、浏览器即达的全栈 AI 工作环境：Python + Node + GUI 桌面 + 终端 + Jupyter + MCP，所有能力容器化隔离，单一端口对外。
+一个跑在你本机的、浏览器即达的全栈 AI 工作环境：Python + Node + GUI 桌面 + 终端 + Jupyter + MCP，所有能力容器化隔离，单一端口对外。P2 引入 Orchestrator 编排层支持多租户。
 
-> **当前阶段：P1 全栈已交付** — 4 base 镜像 + 7 cap-* 服务 + 13 个 MCP 工具 + Unit/Integration/E2E 三层测试。
+> **当前阶段：P1 全栈 + P2 Orchestrator 已交付** — 4 base 镜像 + 7 cap-* 服务 + Orchestrator 编排层（多租户 / JWT 认证 / 审计）+ 13 MCP 工具 + Unit/Integration/E2E 三层测试。
 
 ---
 
 ## 项目定位
 
-- **隔离**：每个能力（agent / browser / terminal / code / jupyter / mcp / nginx）一个容器，共享 X11 socket 与 workspace 卷。
-- **可控**：单端口对外（`cap-nginx :80`），其余服务仅在内部 `sandbox-net` 暴露。
-- **可重建**：所有镜像由 Dockerfile 生成，配置即代码。
-- **共享语义**：Human 与 AI Agent 共享同一 Chromium 实例（CDP）与同一 tmux session（libtmux）。
+- **隔离**：每个能力（agent / browser / terminal / code / jupyter / mcp / nginx）一个容器，共享 X11 socket 与 workspace 卷；P2 workspace 间独立 sandbox-net + 卷隔离
+- **可控**：单端口对外（P1 `cap-nginx :80`；P2 每 workspace 1 端口 + Orchestrator `:8000`）
+- **可重建**：所有镜像由 Dockerfile 生成，配置即代码
+- **共享语义**：Human 与 AI Agent 共享同一 Chromium（CDP）与 tmux session（libtmux）
+- **多租户（P2）**：Orchestrator 编排多 workspace，JWT 认证 + 可信 header + 审计落库
 
 详细设计见 [`.archive/sandbox-design.md`](.archive/sandbox-design.md)（4331 行）。
+
+---
+
+## 两阶段架构
+
+| 阶段 | 范围 | 部署 |
+|------|------|------|
+| **P1** | 单 workspace 全栈能力（shell/browser/file/GUI/code/jupyter + MCP） | 本地 / 内网，`AUTH_MODE=none` |
+| **P2** | Orchestrator 编排层（多 workspace + JWT 认证 + 审计） | 多租户，叠加在 P1 之上（可选） |
+
+P2 是**可选叠加层**：P1 单 workspace 模式仍独立可用（零迁移，业务路由代码不变）。
 
 ---
 
@@ -21,62 +33,60 @@
 
 ```
 .
-├── base/                 # Layer 层：4 个 base 镜像
-│   ├── base-os/          # Ubuntu 24.04 + locale + sandbox 用户
-│   ├── base-python312/   # uv + Python 3.12
-│   ├── base-node24/      # Node.js 24 + pnpm
-│   └── base-vnc/         # Xvnc + Openbox + 字体
-├── cap-agent/            # FastAPI 业务编排（:9000）：health/shell/cdp/gui
-├── cap-browser/          # Xvnc + Chromium（:9222 CDP + :6080 websocat）
-├── cap-code/             # code-server（:8081，VS Code Web）
-├── cap-jupyter/          # JupyterLab（:8888）
-├── cap-mcp/              # FastMCP Streamable HTTP（:8940）：13 工具
-├── cap-nginx/            # 唯一对外入口（:80）+ 10 location 反代
-├── cap-terminal/         # tmux + libtmux shell-exec-api（:7682）
-├── docs/                 # architecture / deployment / troubleshooting
-├── specs/001-sandbox-p1-stack/
-│   ├── spec.md           # 需求规格（32 FR + 8 SC + 7 用户故事）
-│   ├── plan.md           # 开发计划（10 milestone）
-│   ├── research.md       # 10 项技术决策
-│   ├── data-model.md     # 8 类核心实体
-│   ├── contracts/        # 4 个服务对外契约
-│   ├── quickstart.md     # 端到端验证手册
-│   └── tasks.md          # 94 任务清单
-├── tests/e2e/            # 14 个 E2E 测试场景
-├── docker-compose.yml    # 7 服务编排（含 healthcheck/资源限制/挂载矩阵）
-├── Makefile              # 所有开发命令（14 target）
-└── .env.example          # 环境变量样例
+├── base/                   # Layer 层：4 个 base 镜像
+├── cap-agent/              # FastAPI 业务编排（:9000）：health/shell/cdp/gui + auth 中间件 + 审计
+├── cap-browser/            # Xvnc + Chromium（:9222 CDP + :6080）
+├── cap-code/               # code-server（:8081）
+├── cap-jupyter/            # JupyterLab（:8888）
+├── cap-mcp/                # FastMCP（:8940）：13 工具 + 审计上报
+├── cap-nginx/              # 唯一对外入口（:80）+ workspace auth_request 模板（P2）
+├── cap-terminal/           # tmux + shell-exec-api（:7682）+ 审计上报
+├── orchestrator/           # 【P2】Orchestrator 编排层：FastAPI + PostgreSQL + Alembic
+├── specs/
+│   ├── 001-sandbox-p1-stack/         # P1 规格（32 FR + 8 SC + 7 US + contracts）
+│   └── 002-sandbox-p2-orchestrator/  # P2 规格（27 FR + 8 SC + 5 US + 4 contracts + 79 tasks）
+├── docs/                  # architecture（P1+P2）/ deployment / troubleshooting
+├── tests/e2e/             # P1 + P2 E2E
+├── docker-compose.yml                # P1：7 服务编排
+├── docker-compose.orchestrator.yml   # P2：Orchestrator + PostgreSQL
+├── docker-compose.workspace.yml.tmpl # P2：workspace 模板（参数化）
+├── Makefile               # 所有开发命令（P1 + P2 target）
+└── .env.example           # 环境变量样例（P1 + P2）
 ```
 
 ---
 
 ## 快速开始
 
+### P1：单 workspace 全栈
+
 ```bash
-# 1. 克隆与配置
 git clone <repo-url> sandbox && cd sandbox
 cp .env.example .env
-mkdir -p "${WORKSPACE_DIR:-$HOME/sandbox-workspace}"
-
-# 2. 一键部署
 make build          # 构建所有镜像（首次约 5-8 分钟）
-make up             # docker compose up -d（< 90s 到 healthy）
-
-# 3. 验证
+make up             # docker compose up -d（< 90s healthy）
 curl http://localhost/v1/health   # {"status":"ok"}
-
-# 4. 浏览器访问
-# - http://localhost/novnc/        远程桌面
-# - http://localhost/code-server/  VS Code
-# - http://localhost/jupyter/      JupyterLab
-# - http://localhost/terminal/     Web Terminal
+# 浏览器：/novnc/  /code-server/  /jupyter/  /terminal/
 ```
 
-完整步骤见 [`specs/001-sandbox-p1-stack/quickstart.md`](specs/001-sandbox-p1-stack/quickstart.md)。
+### P2：Orchestrator 编排层（多租户）
+
+```bash
+make build-orchestrator   # 构建 orchestrator 镜像（FROM base-python312）
+make up-orchestrator      # 启动 Orchestrator + PostgreSQL（alembic 自动迁移）
+curl http://localhost:8000/readyz   # {"status":"ready","db":"ok"}
+
+# API 闭环：register → login → create workspace → verify → audit
+curl -X POST localhost:8000/api/v1/auth/register \
+  -d '{"email":"a@b.c","password":"pw"}' -H 'Content-Type: application/json'
+# 详见 specs/002-sandbox-p2-orchestrator/quickstart.md
+```
+
+CLI（P2）：`orchestrator user register/login` + `workspace create/start/stop/list`
 
 ---
 
-## MCP 工具清单（13 个）
+## MCP 工具清单（13 个，P1）
 
 cap-mcp 通过 Streamable HTTP 暴露：
 
@@ -92,59 +102,52 @@ cap-mcp 通过 Streamable HTTP 暴露：
 ## 测试
 
 ```bash
-make test-unit      # 各服务 pytest + 覆盖率 ≥80%
-make test-e2e       # docker compose up + 14 个 e2e 场景
+make test-unit                    # P1 各服务 pytest + 覆盖率 ≥80%
+make test-e2e                     # P1 docker compose + e2e
+make test-orchestrator            # P2 orchestrator unit（覆盖率 ≥80%）
+make test-orchestrator-integration # P2 testcontainers-postgres 集成
 ```
 
 | 服务 | tests | 覆盖率 |
 |------|-------|--------|
-| cap-agent | 55 | 99.41% |
-| cap-terminal | 20 | 88.30% |
-| cap-mcp | 40 | 86.00% |
-| cap-nginx | 4 | contract test |
+| cap-agent | 55 | 99% |
+| cap-terminal | 20 | 88% |
+| cap-mcp | 40 | 86% |
+| cap-nginx | 4 | contract |
+| orchestrator（P2） | 51 | 83% |
 
 ---
 
 ## 常用命令
 
 ```bash
-make help          # 列出所有 14 个 target
-make build         # 构建所有 base + cap-* 镜像
-make build-base    # 仅构建 4 个 base 镜像（并行）
-make up            # docker compose up -d
-make down          # 停止容器
-make logs          # 跟踪所有服务日志
-make test          # 跑所有单元 + e2e 测试
-make test-unit     # 仅单元测试
-make test-e2e      # 仅 e2e
-make clean         # 清理容器、卷、缓存
+make help                    # 列出所有 target
+# P1
+make build / up / down / logs / test / clean
+# P2
+make build-orchestrator / up-orchestrator / stop-orchestrator
+make test-orchestrator / test-orchestrator-integration / test-e2e-p2
 ```
 
 ---
 
 ## 相关文档
 
-- [规格 spec.md](specs/001-sandbox-p1-stack/spec.md)
-- [计划 plan.md](specs/001-sandbox-p1-stack/plan.md)
-- [研究 research.md](specs/001-sandbox-p1-stack/research.md)
-- [数据模型 data-model.md](specs/001-sandbox-p1-stack/data-model.md)
-- [快速上手 quickstart.md](specs/001-sandbox-p1-stack/quickstart.md)
-- [任务清单 tasks.md](specs/001-sandbox-p1-stack/tasks.md)
-- [架构总览 docs/architecture.md](docs/architecture.md)
-- [部署手册 docs/deployment.md](docs/deployment.md)
-- [故障排查 docs/troubleshooting.md](docs/troubleshooting.md)
-- [设计原文 .archive/sandbox-design.md](.archive/sandbox-design.md)
+**P1**：[spec](specs/001-sandbox-p1-stack/spec.md) · [plan](specs/001-sandbox-p1-stack/plan.md) · [research](specs/001-sandbox-p1-stack/research.md) · [data-model](specs/001-sandbox-p1-stack/data-model.md) · [quickstart](specs/001-sandbox-p1-stack/quickstart.md) · [tasks](specs/001-sandbox-p1-stack/tasks.md)
+
+**P2**：[spec](specs/002-sandbox-p2-orchestrator/spec.md) · [plan](specs/002-sandbox-p2-orchestrator/plan.md) · [research](specs/002-sandbox-p2-orchestrator/research.md)（9 决策）· [data-model](specs/002-sandbox-p2-orchestrator/data-model.md)（6 表）· [quickstart](specs/002-sandbox-p2-orchestrator/quickstart.md) · [tasks](specs/002-sandbox-p2-orchestrator/tasks.md) · [contracts](specs/002-sandbox-p2-orchestrator/contracts/)（4 份）
+
+通用：[架构 docs/architecture.md](docs/architecture.md) · [部署 docs/deployment.md](docs/deployment.md) · [故障 docs/troubleshooting.md](docs/troubleshooting.md) · [设计原文 .archive/sandbox-design.md](.archive/sandbox-design.md)
 
 ---
 
-## 安全声明（P1）
+## 安全声明
 
-⚠️ **P1 不适合公网部署**：
-- 无应用层认证（`AUTH_MODE=none`），靠 sandbox-net 网络隔离
-- Chromium `--no-sandbox`（P1 安全降级）
-- 无审计落库（仅 `docker compose logs`）
+**P1**（`AUTH_MODE=none`）：⚠️ 不适合公网——靠 sandbox-net 网络隔离，Chromium `--no-sandbox`，无应用层认证。适用本地 / 内网受信环境。
 
-公网部署需 P2 Orchestrator（JWT 校验 + workspace 权限 + 应用层认证）。详见 [`.archive/sandbox-design.md` §1.1.2](.archive/sandbox-design.md)。
+**P2**（Orchestrator）：JWT 网关认证 + 可信 header 注入 + nginx `auth_request` fail-closed + 审计落库（`shell.exec` / `fs.write` / `browser.action` / `gui.action` 4 类）。沿用 P1 宽松处理（Shell `permissive`、Chromium `--no-sandbox`）作为 P2 安全增量基线。
+
+详见 [`.archive/sandbox-design.md` §1.1.2 / §8.6 / §11](.archive/sandbox-design.md)。
 
 ---
 
