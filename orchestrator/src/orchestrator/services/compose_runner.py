@@ -16,8 +16,17 @@ class ComposeResult:
 def workspace_env(
     slug: str, port: int, workspace_id, volume: str, orch_url: str,
     auth_mode: str, auth_failure: str,
+    *,
+    nginx_conf_path: str | None = None,
 ) -> dict:
-    return {
+    """构造 workspace compose 的环境变量。
+
+    nginx_conf_path（P3 Phase5）：可选，渲染后的 cap-nginx auth_request 配置宿主路径。
+    传入则注入 WORKSPACE_NGINX_CONF，compose 模板据此挂载（见 docker-compose.workspace.yml.tmpl
+    的 ${WORKSPACE_NGINX_CONF:-/dev/null}）。不传则回落 /dev/null（P1 AUTH_MODE=none 兼容）。
+    compose_runner 本体零改动（FR-019）：仅多一个可选 env 字段。
+    """
+    env = {
         "WORKSPACE_SLUG": slug,
         "WS_NGINX_PORT": str(port),
         "WORKSPACE_ID": str(workspace_id),
@@ -26,6 +35,9 @@ def workspace_env(
         "ORCHESTRATOR_URL": orch_url,
         "AUTH_FAILURE_MODE": auth_failure,
     }
+    if nginx_conf_path is not None:
+        env["WORKSPACE_NGINX_CONF"] = nginx_conf_path
+    return env
 
 
 async def _compose(args: list[str], project: str, env: dict, cwd: str) -> ComposeResult:

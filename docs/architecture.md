@@ -142,3 +142,68 @@ P2 在 P1 三层之上叠加 **Orchestrator**（可选叠加层，§8.8.5 不变
 - R4 `AUTH_FAILURE_MODE=fail-closed`（Orchestrator 不可达拒绝请求）
 
 详见 `specs/002-sandbox-p2-orchestrator/`（plan / research / data-model / contracts）。
+
+---
+
+## P3 Launcher 入口层 + SSO/OAuth（specs/003-sandbox-p3-launcher）
+
+P3 在 P2 之上叠加 **launcher**（React 启动器）与 **OAuth 身份扩展**，并补齐 **orchestrator-as-controller 真实启动**。不变量：P1/P2 零迁移（compose_runner 代码零改动，P2 既有端点/鉴权链路不变）。
+
+```
+浏览器（单域名 :8080）
+  │
+  ▼
+launcher (nginx :8080)                              ← launcher-net（对外唯一入口）
+  ├── /            → React SPA（登录页 / 工作台 / 监控）
+  ├── /api/        → orchestrator:8000（反代，trailing slash 剥离）
+  └── /ws/{slug}/  → {slug}-cap-nginx:80（统一入口 + auth_request + WebSocket 透传）
+        │ auth_request /_authsub → orchestrator /api/v1/verify
+        │ resolver 127.0.0.11 动态解析 {slug}-cap-nginx（R5 方案A 容器名约定）
+        ▼
+orchestrator (FastAPI :8000) + PostgreSQL 16         ← orchestrator-net（挂 docker.sock）
+  ├── OAuth router（/auth/oauth/{p}/login|callback|bind|unbind, /accounts）
+  │     └── authlib + PKCE；mock 模式（OAUTH_MOCK=true）离线闭环
+  ├── oauth_linker：（provider,provider_user_id）→ 邮箱合并 → 建户 → 复用 P2 security.create_tokens()
+  └── workspace start：compose up 前 render_workspace_nginx_conf（cap-nginx Phase5 auth_request）
+        ▼
+workspace 容器组（docker compose -p {slug}）         ← sandbox-launcher-net（launcher 与 cap-nginx 共享）
+  cap-nginx（挂载渲染后的 nginx.workspace.conf）
+    └── auth_request /_auth → orchestrator /api/v1/verify?workspace={id}（双层纵深防御 R6）
+```
+
+### 核心组件（相对 P2 新增）
+- **launcher**（`launcher/`）：Vite + React 19 + TypeScript + shadcn/ui + tailwind + react-router + @tanstack/react-query；容器内 nginx 托管 SPA 并反代 `/api` + `/ws/{slug}/`。
+- **OAuth 身份扩展**（orchestrator）：`routers/oauth.py` + `services/oauth_provider.py`（authlib GitHub/Google + Mock）+ `services/oauth_linker.py`（邮箱合并）+ `models/oauth_account.py` + Alembic `0002_oauth`。
+- **orchestrator-as-controller**（research.md R4）：orchestrator 镜像装 docker compose v2 CLI + 挂 `/var/run/docker.sock` + workspace compose 模板可见（`WORKSPACE_COMPOSE_CWD`）；compose_runner **代码零改动**（FR-019），仅在容器内真实 `docker compose -p up`。
+- **cap-nginx Phase5 渲染注入**（批次3 遗留，research.md R6）：`services/workspace_compose.py` 在 start 前渲染 `nginx.workspace.conf.tmpl`（`${ORCHESTRATOR_URL}/${WORKSPACE_ID}/${AUTH_FAILURE_MODE}`）到 `{volume_root}/{slug}/nginx.workspace.conf`，经 `WORKSPACE_NGINX_CONF` env 挂入 cap-nginx（compose 模板已预留 `${WORKSPACE_NGINX_CONF:-/dev/null}` 挂载点）。
+
+### 统一反代与 cookie 鉴权链路（research.md R3/R5/R6）
+- 浏览器 → launcher `/ws/{slug}/` → launcher `auth_request /_authsub` → orchestrator `/verify`（回写 X-User-Id/X-Workspace-Id/X-Permissions）→ launcher `proxy_pass http://{slug}-cap-nginx:80`。
+- workspace cap-nginx 再做一次 `auth_request`（双层纵深，防 launcher 被绕过）。
+- JWT 存 **HttpOnly + Secure + SameSite=Lax cookie**（防 XSS 窃取）；launcher fetch 带 `credentials:"include"`；refresh 端点轮换。
+- WebSocket 透传：`proxy_http_version 1.1` + `Upgrade/Connection` + `proxy_read_timeout 3600s`（terminal/novnc 长连接核心，FR-022）。
+- fail-closed：orchestrator 5xx/超时 → `error_page` 403（SC-010 无穿透）。
+
+### P3 安全增量与风险（相对 P2）
+- ⚠️ **docker.sock 挂载**是 P3 唯一新提权面：orchestrator 容器可控制宿主 Docker。缓解：`cap_drop: [ALL]` + `no-new-privileges` + 单机受信环境 + socket 文件权限。公网部署须改远程编排 API（超 P3 范围）。
+- OAuth 凭证仅后端 env（FR-007）；OAuth JWT 复用 P2 内核（行为 100% 一致，下游鉴权/审计零分支）。
+- `OAUTH_MOCK=true` 仅开发/测试；生产 fail-fast。
+
+### 测试分层（P3 新增）
+- orchestrator unit：OAuth provider/linker、workspace_compose 渲染、cap-nginx 模板注入（≥80%）。
+- orchestrator integration：OAuth 闭环 testcontainers-postgres（mock provider）、迁移 `0002_oauth`。
+- launcher unit：vitest + msw（Login/Workspaces/CreateWizard/Monitor 组件）。
+- E2E（`tests/e2e/`）：`test_p3_oauth_flow.py`（OAuth 闭环）/ `test_p3_real_start.py`（真实启动 + 统一入口）/ `test_p1p2_regression.py`（零迁移回归）。无 Docker/镜像自动 skip。
+
+### 9 项技术决策（research.md R1-R9）
+- R1 authlib + Authorization Code + PKCE，签发等价 P2 JWT
+- R2 oauth_accounts 表 + users 增 display_name/avatar + 邮箱合并
+- R3 JWT 存 HttpOnly + Secure + SameSite=Lax cookie
+- R4 orchestrator-as-controller：docker.sock + compose CLI + 模板挂载
+- R5 launcher nginx：SPA + /api + /ws/{slug}/ + auth_request + WebSocket 透传
+- R6 cap-nginx Phase5：envsubst 渲染 auth_request，双层鉴权纵深
+- R7 监控刷新：轮询（react-query refetchInterval），SSE 推迟
+- R8 前端架构：Vite + React 19 + shadcn/ui + tailwind + react-router + react-query
+- R9 OAuth 开发态 mock（OAUTH_MOCK 开关，走真实建户/签 JWT）
+
+详见 `specs/003-sandbox-p3-launcher/`（plan / research / quickstart / contracts）。

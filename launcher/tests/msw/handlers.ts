@@ -1,6 +1,8 @@
 // msw handlers：mock orchestrator REST API（/api/v1/...）
 import { http, HttpResponse, delay } from "msw";
 import type {
+  AuditEvent,
+  Page,
   User,
   Workspace,
 } from "@/types";
@@ -35,6 +37,42 @@ export const mockWorkspaces: Workspace[] = [
     created_at: "2026-06-19T10:00:00Z",
     last_active_at: null,
     error_message: null,
+  },
+];
+
+// 合成审计事件样例（覆盖 4 类 AuditType，时间倒序）
+export const mockAuditEvents: AuditEvent[] = [
+  {
+    id: "ev_1",
+    workspace_id: "ws_1",
+    type: "shell.exec",
+    actor_user_id: "u_1",
+    created_at: "2026-06-20T05:30:00Z",
+    summary: "ls -la /workspace",
+  },
+  {
+    id: "ev_2",
+    workspace_id: "ws_1",
+    type: "fs.write",
+    actor_user_id: "u_1",
+    created_at: "2026-06-20T05:20:00Z",
+    summary: "写入 /workspace/main.py (256B)",
+  },
+  {
+    id: "ev_3",
+    workspace_id: "ws_1",
+    type: "browser.action",
+    actor_user_id: "u_1",
+    created_at: "2026-06-20T05:10:00Z",
+    summary: "navigate https://example.com",
+  },
+  {
+    id: "ev_4",
+    workspace_id: "ws_1",
+    type: "gui.action",
+    actor_user_id: null,
+    created_at: "2026-06-20T05:00:00Z",
+    summary: "点击「运行」按钮",
   },
 ];
 
@@ -113,4 +151,22 @@ export const handlers = [
   http.get("/api/v1/auth/oauth/accounts", () =>
     HttpResponse.json({ accounts: [] }),
   ),
+
+  // GET /audit?workspace=&limit=&offset= — 分页 Page<AuditEvent>
+  http.get("/api/v1/audit", ({ request }) => {
+    const url = new URL(request.url);
+    const wsId = url.searchParams.get("workspace") ?? "";
+    const limit = Number(url.searchParams.get("limit") ?? "20");
+    const offset = Number(url.searchParams.get("offset") ?? "0");
+    // ws_1 有 4 条样例；其它 workspace 返回空（验证空态）
+    const all = wsId === "ws_1" ? mockAuditEvents : [];
+    const items = all.slice(offset, offset + limit);
+    const page: Page<AuditEvent> = {
+      items,
+      total: all.length,
+      limit,
+      offset,
+    };
+    return HttpResponse.json(page);
+  }),
 ];

@@ -8,6 +8,7 @@ import { useCurrentUser, useLogout } from "@/hooks/useSession";
 const Login = lazy(() => import("@/pages/Login"));
 const Workspaces = lazy(() => import("@/pages/Workspaces"));
 const CreateWizard = lazy(() => import("@/pages/CreateWizard"));
+const Monitor = lazy(() => import("@/pages/Monitor"));
 
 function FullScreenLoader() {
   return (
@@ -46,6 +47,9 @@ function TopBar() {
           </Link>
           <Link to="/create" className="hover:text-foreground">
             新建
+          </Link>
+          <Link to="/monitor" className="hover:text-foreground">
+            监控
           </Link>
         </nav>
       </div>
@@ -98,6 +102,14 @@ export default function App() {
           element={
             <ProtectedLayout>
               <CreateWizard />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/monitor"
+          element={
+            <ProtectedLayout>
+              <Monitor />
             </ProtectedLayout>
           }
         />

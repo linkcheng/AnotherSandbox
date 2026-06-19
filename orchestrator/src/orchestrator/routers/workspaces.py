@@ -15,6 +15,7 @@ from orchestrator.models.workspace_owner import WorkspaceOwner
 from orchestrator.schemas.workspace import WorkspaceCreateIn, WorkspaceOut
 from orchestrator.services import compose_runner
 from orchestrator.services.port_allocator import allocate_port
+from orchestrator.services.workspace_compose import render_workspace_nginx_conf
 from orchestrator.services.workspace_lifecycle import apply_start_result, make_slug, validate_transition, volume_path
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
@@ -22,9 +23,16 @@ _settings = get_settings()
 
 
 def _ws_env(ws: Workspace) -> dict:
+    """构造 workspace compose env，含 P3 Phase5 渲染后的 cap-nginx auth_request 配置路径。
+
+    每次调用都重新渲染（幂等覆盖）：保证 WORKSPACE_ID/orch_url 最新（research.md R6）。
+    渲染失败会抛 FileNotFoundError（模板缺失）——仅在配置错误时发生，fail-fast 暴露问题。
+    """
+    nginx_conf = render_workspace_nginx_conf(ws, _settings)
     return compose_runner.workspace_env(
         ws.slug, ws.external_port, ws.id, ws.volume_path,
         _settings.orch_url, "orchestrator", _settings.auth_failure_mode,
+        nginx_conf_path=str(nginx_conf),
     )
 
 

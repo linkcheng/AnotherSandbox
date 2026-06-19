@@ -124,10 +124,11 @@ up-p3:  ## 启动 P3 完整 stack（orchestrator + postgres + launcher，含 doc
 stop-p3:  ## 停止 P3 stack
 	$(COMPOSE) -f docker-compose.orchestrator.yml down
 
-test-e2e-p3:  ## P3 完整 E2E（起 stack + 跑 e2e；e2e 文件下一批补齐，当前为占位）
+test-e2e-p3:  ## P3 完整 E2E（build → up-p3 → test_p3_* + test_p1p2_regression → stop-p3）
+	$(MAKE) build
 	$(MAKE) build-orchestrator build-launcher
 	$(MAKE) up-p3
-	cd tests && uv run pytest e2e/test_p3_*.py -v || echo "==> P3 e2e 用例待下一批补齐（stack 已起）"
+	cd tests && uv run pytest e2e/test_p3_oauth_flow.py e2e/test_p3_real_start.py e2e/test_p1p2_regression.py -v
 	$(MAKE) stop-p3
 
 ## Misc
