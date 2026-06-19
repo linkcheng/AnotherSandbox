@@ -94,3 +94,51 @@
 - R6：nginx 显式 WS 升级
 - R7：cap_drop ALL + Chromium --no-sandbox（P1）
 - R10：bind mount + rw/ro 子目录隔离
+
+---
+
+## P2 Orchestrator 编排层（specs/002-sandbox-p2-orchestrator）
+
+P2 在 P1 三层之上叠加 **Orchestrator**（可选叠加层，§8.8.5 不变量：P1 单 workspace 仍独立可用）。
+
+```
+宿主机
+├── Orchestrator (FastAPI :8000) + PostgreSQL 16     ← orchestrator-net
+│     编排 / 元数据 / JWT 认证 / 审计
+└── workspace 容器组（docker compose -p {slug}）     ← 各自独立 sandbox-net（互隔离）
+      cap-nginx :{external_port} → cap-agent/mcp/terminal/browser/code/jupyter
+        │ auth_request → Orchestrator /api/v1/verify（回写可信 header）
+        │ 审计上报    → Orchestrator /api/v1/audit/ingest（best-effort）
+        └── extra_hosts: host.docker.internal:host-gateway（出站到 Orchestrator）
+```
+
+### 核心组件
+- **Orchestrator**（独立 Python 服务 `orchestrator/`）：FastAPI + SQLAlchemy 2.x async + Alembic + PyJWT + passlib[bcrypt] + typer
+- **元数据**（PostgreSQL）：6 表 users/workspaces/workspace_owners/templates/audit_logs/refresh_tokens
+- **认证**：JWT register/login/refresh（rotation）+ nginx auth_request → `/verify` 注入可信 header（X-User-Id/X-Workspace-Id/X-Permissions）
+- **编排**：`docker compose -p` 子进程（asyncio.create_subprocess_exec，非 shell）+ 状态机（§8.5）+ 端口分配（8100+）
+- **审计**：cap-* fire-and-forget 上报 → `audit_logs`（best-effort，不阻塞业务）
+
+### P2 安全增量（相对 P1）
+- JWT 网关认证 + 可信 header + nginx auth_request fail-closed（R4）
+- 审计落库（§8.8.6）
+- **沿用 P1 宽松**（用户确认）：Shell `permissive`、Chromium `--no-sandbox`（FR-NI-4/5）
+
+### 关注点分离（§8.6.3）
+- Orchestrator 见用户身份（JWT），不见业务内容
+- cap-agent 见业务内容，不见密码；通过 nginx 注入的可信 header 获知身份
+- 网络隔离 + nginx `proxy_set_header` 覆盖（非透传）防外部伪造可信 header
+
+### 测试分层
+- orchestrator unit（≥80%）+ integration（testcontainers-postgres 真 PG）
+- cap-agent auth（双模式）/ audit_client（fire-and-forget）unit
+- nginx workspace 模板 contract
+- E2E（完整 stack）：`tests/e2e/test_p2_*.py`（需 `make up-orchestrator` + workspace）
+
+### 4 项技术决策（research.md R1-R4）
+- R1 软删除保留 `WORKSPACE_RETENTION_DAYS=7` 天后硬删
+- R2 每 workspace 1 对外端口，`WORKSPACE_PORT_START=8100` 递增
+- R3 workspace 经 `host.docker.internal`（host-gateway）出站到 Orchestrator
+- R4 `AUTH_FAILURE_MODE=fail-closed`（Orchestrator 不可达拒绝请求）
+
+详见 `specs/002-sandbox-p2-orchestrator/`（plan / research / data-model / contracts）。

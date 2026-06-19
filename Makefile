@@ -98,6 +98,12 @@ up-orchestrator:  ## 启动 Orchestrator + PostgreSQL（P2 编排层）
 stop-orchestrator:  ## 停止 Orchestrator + PostgreSQL
 	$(COMPOSE) -f docker-compose.orchestrator.yml down
 
+test-e2e-p2:  ## P2 完整 stack E2E（Orchestrator + workspace）
+	$(MAKE) build-orchestrator
+	$(COMPOSE) -f docker-compose.orchestrator.yml up -d --wait
+	cd tests && uv run pytest e2e/test_p2_*.py -v
+	$(COMPOSE) -f docker-compose.orchestrator.yml down
+
 test-orchestrator:  ## orchestrator 单元测试（覆盖率 ≥80%，SC-003）
 	cd orchestrator && uv run pytest tests/unit --cov=orchestrator --cov-report=term-missing --cov-fail-under=80
 
