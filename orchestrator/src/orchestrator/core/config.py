@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     auth_failure_mode: str = "fail-closed"
 
     orch_url: str = "http://localhost:8000"
+    workspace_compose_cwd: str = "."  # docker-compose.workspace.yml.tmpl 所在目录（仓库根）
     orch_port: int = 8000
 
     def resolved_jwt_secret(self) -> str:
