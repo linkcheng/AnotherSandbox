@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from orchestrator.routers import audit, auth, health, verify, workspaces
+from orchestrator.routers import audit, auth, health, me, oauth, verify, workspaces
 
 logger = logging.getLogger("orchestrator")
 
@@ -22,6 +22,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Orchestrator", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(oauth.router)
+    app.include_router(me.router)
     app.include_router(workspaces.router)
     app.include_router(verify.router)
     app.include_router(audit.router)

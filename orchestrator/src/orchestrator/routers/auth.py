@@ -1,8 +1,12 @@
-"""认证路由：register/login/refresh。research.md R5, contracts/orchestrator-rest-api §1。"""
+"""认证路由：register/login/refresh。research.md R5, contracts/orchestrator-rest-api §1。
+
+P3 扩展（T025，零迁移）：login/refresh 成功响应**额外 Set-Cookie**（HttpOnly+SameSite=Lax），
+JSON body 保留不变（CLI 无感知）。set_session_cookies 由 oauth router 复用。R3。
+"""
 import hashlib
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +25,25 @@ _settings = get_settings()
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def set_session_cookies(response: Response, access: str, refresh: str) -> None:
+    """登录成功后下发 HttpOnly 会话 cookie（access + refresh）。R3。
+
+    - access：Path=/，Max-Age=900（与 access token TTL 一致）
+    - refresh：Path=/api/v1/auth/refresh，Max-Age=604800（refresh TTL）
+    - HttpOnly 防 XSS 读；SameSite=Lax 防 CSRF；Secure 生产开启（dev 关便于 http 测试）
+    """
+    secure = _settings.env == "prod"
+    common = {"httponly": True, "secure": secure, "samesite": "lax"}
+    response.set_cookie(
+        "access_token", access, max_age=_settings.access_token_ttl_min * 60,
+        path="/", **common,
+    )
+    response.set_cookie(
+        "refresh_token", refresh, max_age=_settings.refresh_token_ttl_days * 86400,
+        path="/api/v1/auth/refresh", **common,
+    )
 
 
 async def _issue_tokens(session: AsyncSession, user: User) -> TokenOut:
@@ -52,15 +75,17 @@ async def register(body: RegisterIn, session: AsyncSession = Depends(get_session
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(body: LoginIn, session: AsyncSession = Depends(get_session)):
+async def login(body: LoginIn, response: Response, session: AsyncSession = Depends(get_session)):
     user = await session.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail={"error": {"code": "unauthorized"}})
-    return await _issue_tokens(session, user)
+    tokens = await _issue_tokens(session, user)
+    set_session_cookies(response, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post("/refresh", response_model=TokenOut)
-async def refresh(body: RefreshIn, session: AsyncSession = Depends(get_session)):
+async def refresh(body: RefreshIn, response: Response, session: AsyncSession = Depends(get_session)):
     try:
         payload = decode_token(body.refresh_token)
     except Exception:
@@ -78,4 +103,6 @@ async def refresh(body: RefreshIn, session: AsyncSession = Depends(get_session))
     if not user:
         raise HTTPException(status_code=401, detail={"error": {"code": "unauthorized"}})
     await session.commit()
-    return await _issue_tokens(session, user)
+    tokens = await _issue_tokens(session, user)
+    set_session_cookies(response, tokens.access_token, tokens.refresh_token)
+    return tokens

@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     workspace_compose_cwd: str = "."  # docker-compose.workspace.yml.tmpl 所在目录（仓库根）
     orch_port: int = 8000
 
+    # P3 OAuth（research.md R1/R9）
+    oauth_mock: bool = True  # 开发态 mock provider（生产必须 false）
+    oauth_redirect_url: str = "http://localhost:8080/api/v1/auth/oauth"
+    oauth_github_client_id: str = ""
+    oauth_github_client_secret: str = ""
+    oauth_google_client_id: str = ""
+    oauth_google_client_secret: str = ""
+
     def resolved_jwt_secret(self) -> str:
         """已配置则用之；prod 缺失 fail-fast；dev 缺失则生成并缓存（进程级一致）。"""
         global _cached_dev_secret

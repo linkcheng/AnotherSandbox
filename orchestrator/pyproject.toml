@@ -16,6 +16,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "typer>=0.14.0",
     "httpx>=0.27.0",
+    "authlib>=1.3.0,<1.6",  # P3 OAuth client（GitHub/Google Authorization Code + PKCE）；上界避免 cryptography>=45 无 wheel
 ]
 
 [project.optional-dependencies]
