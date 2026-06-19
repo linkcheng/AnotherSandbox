@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import TypeAdapter
 
 from cap_agent.models.actions import GUIAction
+from cap_agent.services.audit_client import audit_client
 from cap_agent.services.gui_backend import gui_backend
 
 router = APIRouter()
@@ -34,7 +35,7 @@ async def screenshot() -> StreamingResponse:
 
 
 @router.post("/gui/actions")
-async def actions(action: dict[str, Any]) -> dict[str, Any]:
+async def actions(action: dict[str, Any], request: Request) -> dict[str, Any]:
     """执行 16 种桌面动作之一（discriminated union by action_type）。"""
     try:
         parsed = _action_adapter.validate_python(action)
@@ -45,4 +46,10 @@ async def actions(action: dict[str, Any]) -> dict[str, Any]:
         result = await gui_backend.execute(parsed)
     except Exception as e:  # noqa: BLE001 — backend 异常统一转 500
         raise HTTPException(status_code=500, detail=f"action failed: {e}") from e
+    audit_client.report(
+        "gui.action",
+        {"action_type": action.get("action_type"), "ok": result.get("ok", True)},
+        actor_user_id=request.headers.get("X-User-Id"),
+        success=True,
+    )
     return result
