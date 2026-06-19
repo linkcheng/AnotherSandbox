@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from cap_mcp.services.audit_client import audit_client
+
 
 def _workspace_root() -> Path:
     """读取 workspace 根目录（每次调用读 env）。"""
@@ -101,7 +103,9 @@ async def fs_write(path: str, content: str) -> dict[str, Any]:
     target.parent.mkdir(parents=True, exist_ok=True)
     data = content.encode("utf-8")
     target.write_bytes(data)
-    return {"ok": True, "bytes": len(data)}
+    result = {"ok": True, "bytes": len(data)}
+    audit_client.report("fs.write", {"path": path, "bytes": len(data)}, actor_user_id=None, success=True)
+    return result
 
 
 async def fs_list(path: str = "/workspace") -> dict[str, Any]:

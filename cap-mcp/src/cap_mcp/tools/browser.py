@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from cap_mcp.services.audit_client import audit_client
+
 CDP_ENDPOINT = os.getenv("CAP_MCP_BROWSER_CDP_URL", "http://cap-browser:9222")
 
 # 全局 playwright + browser 连接（懒初始化；测试中通过 patch _get_playwright 替换）
@@ -66,7 +68,9 @@ async def browser_navigate(url: str) -> dict[str, Any]:
         page = _active_page(browser)
         await page.goto(url, wait_until="domcontentloaded", timeout=30000)
         title = await page.title()
-        return {"ok": True, "url": page.url, "title": title}
+        result = {"ok": True, "url": page.url, "title": title}
+        audit_client.report("browser.action", {"action": "navigate", "url": url, "ok": True}, actor_user_id=None, success=True)
+        return result
     except Exception as e:  # noqa: BLE001 — 不抛异常让 MCP 客户端处理
         return {"ok": False, "url": url, "title": "", "error": str(e)}
 
