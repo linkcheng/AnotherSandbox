@@ -1,7 +1,8 @@
 # AI 个人沙箱 P2 —— Orchestrator 编排层
 # Orchestrator 服务 + PostgreSQL 元数据库
 # specs/002-sandbox-p2-orchestrator/plan.md FR-001/007, research.md R3
-# 用法：make up-orchestrator
+# 注：postgres 官方镜像 entrypoint 需 gosu 切 user（依赖 setuid），
+#     不设 cap_drop/no-new-privileges；orchestrator 保留最小权限加固。
 name: orchestrator
 
 networks:
@@ -21,8 +22,6 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [orchestrator-net]
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U orchestrator"]
@@ -31,7 +30,9 @@ services:
       retries: 10
 
   orchestrator:
-    build: ./orchestrator
+    build:
+      context: ./orchestrator
+      target: prod
     image: sandbox/orchestrator:latest
     ports:
       - "${ORCH_PORT:-8000}:8000"
