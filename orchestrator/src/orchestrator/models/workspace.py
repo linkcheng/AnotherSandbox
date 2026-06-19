@@ -1,8 +1,12 @@
-"""Workspace ORM（data-model.md §2.3, research.md R2 partial unique）。"""
+"""Workspace ORM（data-model.md §2.3, research.md R2 partial unique）。
+
+datetime 字段显式 DateTime(timezone=True)，与 migration TIMESTAMPTZ 对齐
+（避免 asyncpg offset-naive/aware 冲突）。
+"""
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -34,6 +38,6 @@ class Workspace(Base):
     compose_project: Mapped[str] = mapped_column(String(64), nullable=False)
     external_port: Mapped[int] = mapped_column(Integer, nullable=False)
     volume_path: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
-    last_active_at: Mapped[datetime | None] = mapped_column(server_default=func.now(), nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -111,6 +111,34 @@ async def stop_workspace(
     return ws
 
 
+@router.post("/{workspace_id}/pause", response_model=WorkspaceOut)
+async def pause_workspace(
+    ws_role: tuple[Workspace, str] = Depends(require_workspace_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    ws = ws_role[0]
+    target = validate_transition("pause", ws.status)
+    if target != ws.status:
+        await compose_runner.pause(ws.slug, _ws_env(ws), _settings.workspace_compose_cwd)
+        ws.status = "paused"
+        await session.commit()
+    return ws
+
+
+@router.post("/{workspace_id}/resume", response_model=WorkspaceOut)
+async def resume_workspace(
+    ws_role: tuple[Workspace, str] = Depends(require_workspace_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    ws = ws_role[0]
+    target = validate_transition("resume", ws.status)
+    if target != ws.status:
+        await compose_runner.unpause(ws.slug, _ws_env(ws), _settings.workspace_compose_cwd)
+        ws.status = "running"
+        await session.commit()
+    return ws
+
+
 @router.delete("/{workspace_id}")
 async def delete_workspace(
     ws_role: tuple[Workspace, str] = Depends(require_workspace_owner),

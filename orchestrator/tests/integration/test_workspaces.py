@@ -76,3 +76,18 @@ def test_start_stop_with_mocked_compose(client):
 def test_get_nonexistent_returns_404(client):
     token = _register_login(client)
     assert client.get(f"/api/v1/workspaces/{uuid.uuid4()}", headers=_h(token)).status_code == 404
+
+
+def test_pause_resume_with_mocked_compose(client):
+    token = _register_login(client)
+    h = _h(token)
+    wid = _create(client, token, "pr")["id"]
+    ok = ComposeResult(success=True, returncode=0)
+    with patch("orchestrator.routers.workspaces.compose_runner.up", new=AsyncMock(return_value=ok)):
+        client.post(f"/api/v1/workspaces/{wid}/start", headers=h)  # created → running
+    with patch("orchestrator.routers.workspaces.compose_runner.pause", new=AsyncMock(return_value=ok)):
+        r = client.post(f"/api/v1/workspaces/{wid}/pause", headers=h)
+        assert r.status_code == 200 and r.json()["status"] == "paused"
+    with patch("orchestrator.routers.workspaces.compose_runner.unpause", new=AsyncMock(return_value=ok)):
+        r2 = client.post(f"/api/v1/workspaces/{wid}/resume", headers=h)
+        assert r2.status_code == 200 and r2.json()["status"] == "running"
