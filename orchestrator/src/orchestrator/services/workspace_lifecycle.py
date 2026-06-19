@@ -2,6 +2,8 @@
 import re
 import secrets
 
+from orchestrator.services.compose_runner import ComposeResult
+
 # 合法动作 → 允许的前置状态
 _TRANSITIONS: dict[str, set[str]] = {
     "start": {"created", "stopped"},
@@ -13,6 +15,9 @@ _TRANSITIONS: dict[str, set[str]] = {
 _TARGET: dict[str, str] = {
     "start": "running", "stop": "stopped", "pause": "paused", "resume": "running", "delete": "deleted",
 }
+
+# error_message 截断上限（防前端展示失控；TEXT 列无硬限）
+_ERROR_MESSAGE_MAX = 2000
 
 
 def make_slug(name: str) -> str:
@@ -34,3 +39,26 @@ def validate_transition(action: str, current: str) -> str:
 
 def volume_path(root: str, slug: str) -> str:
     return f"{root}/{slug}"
+
+
+def apply_start_result(ws, result: ComposeResult) -> None:
+    """将 compose up 结果应用到 workspace（FR-018）。
+
+    成功 → status=running + 清空 error_message（避免历史错误残留误导用户）。
+    失败 → status=error + error_message 记 stderr 摘要（截断防失控）。
+
+    compose_runner 零改动（FR-019）：本函数仅消费其 ComposeResult，不感知子进程细节。
+    调用方（workspaces.start_workspace）负责 commit。
+    """
+    if result.success:
+        ws.status = "running"
+        ws.error_message = None
+        return
+    # 失败：转 error 态，保留 stderr 摘要供前端展示与排障
+    ws.status = "error"
+    stderr = (result.stderr or "").strip()
+    if not stderr:
+        # stderr 空也写非空占位，便于前端判定「有错误」而非「无错误字段」
+        ws.error_message = f"compose up failed (returncode={result.returncode})"
+    else:
+        ws.error_message = stderr[:_ERROR_MESSAGE_MAX]

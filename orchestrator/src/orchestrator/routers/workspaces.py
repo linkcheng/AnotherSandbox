@@ -15,7 +15,7 @@ from orchestrator.models.workspace_owner import WorkspaceOwner
 from orchestrator.schemas.workspace import WorkspaceCreateIn, WorkspaceOut
 from orchestrator.services import compose_runner
 from orchestrator.services.port_allocator import allocate_port
-from orchestrator.services.workspace_lifecycle import make_slug, validate_transition, volume_path
+from orchestrator.services.workspace_lifecycle import apply_start_result, make_slug, validate_transition, volume_path
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
 _settings = get_settings()
@@ -92,7 +92,8 @@ async def start_workspace(
         ws.status = "starting"
         await session.commit()
         result = await compose_runner.up(ws.slug, _ws_env(ws), _settings.workspace_compose_cwd)
-        ws.status = "running" if result.success else "error"
+        # FR-018：失败转 error 并写 error_message 摘要；成功清空历史错误（compose_runner 零改动）
+        apply_start_result(ws, result)
         await session.commit()
     return ws
 

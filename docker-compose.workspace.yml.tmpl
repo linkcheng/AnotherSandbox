@@ -1,9 +1,11 @@
-# AI 个人沙箱 P2 —— Workspace 模板（参数化）
+# AI 个人沙箱 P3 —— Workspace 模板（参数化）
 # compose_runner 渲染：docker compose -p ${WORKSPACE_SLUG} --env-file <ws.env> -f docker-compose.workspace.yml.tmpl up -d --wait
 # ws.env 注入：WORKSPACE_SLUG / WS_NGINX_PORT / WORKSPACE_ID / WORKSPACE_VOLUME / AUTH_MODE / ORCHESTRATOR_URL / AUTH_FAILURE_MODE
-# research.md R2/R3, contracts/trusted-headers.md
-# 注：cap-nginx 的 auth_request 配置在 Phase 5（cap-nginx/nginx.workspace.conf.tmpl, T050）通过挂载注入；
-#     本模板 Phase 1-4 阶段 cap-nginx 沿用 P1 行为（AUTH_MODE 兼容），Phase 5 升级。
+# research.md R2/R3/R5, contracts/trusted-headers.md, contracts/launcher-workspace-proxy.md
+# P3 变更（T043）：
+#   - cap-nginx container_name 遵循 ${WORKSPACE_SLUG}-cap-nginx 约定（R5 方案A，launcher 反代按此解析）
+#   - cap-nginx 加入外部共享网络 sandbox-launcher-net（launcher 经此网络 proxy_pass http://<slug>-cap-nginx:80）
+#   - cap-nginx 挂载 envsubst 渲染后的 nginx.workspace.conf（Phase 5 auth_request 落地）
 name: ${WORKSPACE_SLUG}
 
 # YAML 锚点：所有容器统一加 host-gateway（R3，出站到 Orchestrator）
@@ -13,6 +15,12 @@ x-extra-hosts: &extra_hosts
 networks:
   sandbox-net:
     driver: bridge
+  # 外部共享网络：由 docker-compose.orchestrator.yml 创建（orchestrator 项目名前缀）
+  # launcher 与各 workspace cap-nginx 经此网络互通（R5 方案A 容器名解析）
+  # 注：external 网络名需带 orchestrator compose 项目名前缀（默认 orchestrator_）
+  sandbox-launcher-net:
+    external: true
+    name: orchestrator_sandbox-launcher-net
 
 volumes:
   x11-unix:
@@ -20,6 +28,8 @@ volumes:
 services:
   cap-nginx:
     image: sandbox/cap-nginx:latest
+    # R5 方案A 命名约定：launcher 据此 proxy_pass http://${WORKSPACE_SLUG}-cap-nginx:80
+    container_name: ${WORKSPACE_SLUG}-cap-nginx
     ports: ["${WS_NGINX_PORT}:80"]
     depends_on:
       cap-agent: {condition: service_healthy}
@@ -31,8 +41,15 @@ services:
     environment:
       ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
       AUTH_FAILURE_MODE: ${AUTH_FAILURE_MODE:-fail-closed}
+      # envsubst 渲染 nginx.workspace.conf.tmpl 所需变量（Phase 5 auth_request）
+      ORCH_PORT: ${ORCH_PORT:-8000}
+      WORKSPACE_ID: ${WORKSPACE_ID}
+    # 挂载渲染后的 auth_request 配置（由 orchestrator envsubst 生成）。
+    # 未提供时回落 /dev/null（保留 P1 默认 cap-nginx 配置，AUTH_MODE=none 兼容）
+    volumes:
+      - ${WORKSPACE_NGINX_CONF:-/dev/null}:/etc/nginx/conf.d/workspace.conf:ro
     <<: *extra_hosts
-    networks: [sandbox-net]
+    networks: [sandbox-net, sandbox-launcher-net]
     mem_limit: 64m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]

@@ -1,8 +1,18 @@
-# Launcher nginx 配置模板（envsubst 渲染 ${ORCHESTRATOR_UPSTREAM} / ${LAUNCHER_PORT}）
-# specs/003-sandbox-p3-launcher/plan.md T008
+# Launcher nginx 配置模板（envsubst 白名单渲染 ${ORCH_URL} / ${ORCHESTRATOR_UPSTREAM} / ${LAUNCHER_PORT}）
+# specs/003-sandbox-p3-launcher/plan.md T008/T045, contracts/launcher-workspace-proxy.md
 # - SPA 托管（try_files 回落 index.html）
 # - /api/ 反代 orchestrator（cookie 透传）
-# - /ws/<slug>/ 反代 workspace cap-nginx（批次3 落地 auth_request + WebSocket）
+# - /ws/<slug>/ 反代 workspace cap-nginx（auth_request 子请求 + WebSocket 透传）
+#
+# 渲染机制：自定义 entrypoint 用 envsubst 白名单（仅替换 ${ORCH_URL} 等 3 个变量），
+# nginx 运行时变量（$slug/$http_upgrade/$upstream_http_* 等）原样保留。
+# 见 launcher/docker-entrypoint.sh。
+
+# WebSocket Upgrade 映射（FR-022 长连接透传）
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
 
 server {
     listen ${LAUNCHER_PORT};
@@ -11,7 +21,7 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # 上游 orchestrator
+    # 上游 orchestrator（envsubst 渲染期确定）
     set $orchestrator ${ORCHESTRATOR_UPSTREAM};
 
     # SPA：非文件请求回落 index.html（react-router 前端路由）
@@ -35,19 +45,59 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Requested-With $http_x_requested_with;
-        proxy_pass_request_cookies on;
+        # cookie 默认随 proxy_pass 透传（nginx 原生行为，无需显式指令）
         proxy_read_timeout 60s;
     }
 
-    # /ws/<slug>/ → workspace cap-nginx（批次3：auth_request + WebSocket Upgrade 透传）
-    # 占位：本批次仅留路由骨架，实际反代与鉴权在 P3-US3（T045）落地
-    # location ~ ^/ws/(?<slug>[a-z0-9-]+)/(.*)$ {
-    #     resolver 127.0.0.11 valid=30s;
-    #     proxy_pass http://$slug-cap-nginx/$2$is_args$args;
-    #     proxy_http_version 1.1;
-    #     proxy_set_header Upgrade $http_upgrade;
-    #     proxy_set_header Connection "upgrade";
-    #     proxy_read_timeout 3600s;
-    #     proxy_buffering off;
-    # }
+    # ── auth_request 内部子请求（/ws/<slug>/ 鉴权，launcher-workspace-proxy §2）──
+    # 调 orchestrator verify，2xx 放行 / 401 未认证 / 403 无归属。fail-closed（FR-023）。
+    location = /_authsub {
+        internal;
+        proxy_pass ${ORCH_URL}/api/v1/verify?workspace=$slug;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Cookie $http_cookie;
+    }
+
+    # ── /ws/<slug>/ → workspace cap-nginx（R5 方案A 动态解析容器名）──
+    # 命名约定：<slug>-cap-nginx（见 docker-compose.workspace.yml.tmpl container_name）
+    # 经 sandbox-launcher-net 共享网络，Docker 内置 DNS（127.0.0.11）解析
+    location ~ ^/ws/(?<slug>[a-z0-9-]+)/ {
+        auth_request /_authsub;
+        # 捕获 orchestrator 回写的可信 header（P2 trusted-headers 契约）
+        auth_request_set $x_user_id $upstream_http_x_user_id;
+        auth_request_set $x_workspace_id $upstream_http_x_workspace_id;
+        auth_request_set $x_permissions $upstream_http_x_permissions;
+
+        # Docker 内置 DNS，动态解析 workspace 容器名（valid 缓存 10s）
+        resolver 127.0.0.11 valid=10s ipv6=off;
+
+        # WebSocket 透传（FR-022）：terminal/novnc 长连接不截断
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        # 覆盖注入可信 header（防客户端伪造）
+        proxy_set_header X-User-Id $x_user_id;
+        proxy_set_header X-Workspace-Id $x_workspace_id;
+        proxy_set_header X-Permissions $x_permissions;
+
+        proxy_read_timeout 3600s;   # 长连接不早断
+        proxy_buffering off;        # terminal/novnc 流式不缓冲
+
+        # 用变量触发运行时 DNS 解析（含变量时 nginx 不在启动期解析）
+        proxy_pass http://$slug-cap-nginx:80;
+
+        # fail-closed 降级（FR-024）：auth_request 非 2xx 或 workspace 不可达 → 可读页
+        error_page 401 403 500 502 503 504 = /workspace-denied.html;
+    }
+
+    # 降级页（T048）
+    location = /workspace-denied.html {
+        internal;
+        root /usr/share/nginx/html;
+    }
 }
+

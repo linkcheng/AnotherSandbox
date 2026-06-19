@@ -1,12 +1,16 @@
-# AI 个人沙箱 P2 —— Orchestrator 编排层
-# Orchestrator 服务 + PostgreSQL 元数据库
-# specs/002-sandbox-p2-orchestrator/plan.md FR-001/007, research.md R3
+# AI 个人沙箱 P3 —— Orchestrator 编排层 + Launcher 统一入口
+# Orchestrator 服务（orchestrator-as-controller）+ PostgreSQL + Launcher 反代
+# specs/003-sandbox-p3-launcher/plan.md T040/T053, research.md R4/R5
 # 注：postgres 官方镜像 entrypoint 需 gosu 切 user（依赖 setuid），
-#     不设 cap_drop/no-new-privileges；orchestrator 保留最小权限加固。
+#     不设 cap_drop/no-new-privileges；orchestrator/launcher 保留最小权限加固。
 name: orchestrator
 
 networks:
   orchestrator-net:
+    driver: bridge
+  # P3：launcher 与各 workspace cap-nginx 共享的桥接网络（R5 方案A 容器名解析）
+  # workspace compose 模板也加入此网络，launcher 据此 proxy_pass http://<slug>-cap-nginx:80
+  sandbox-launcher-net:
     driver: bridge
 
 volumes:
@@ -48,14 +52,46 @@ services:
       AUTH_FAILURE_MODE: ${AUTH_FAILURE_MODE:-fail-closed}
       ORCH_URL: http://localhost:${ORCH_PORT:-8000}
       WORKSPACE_VOLUME_ROOT: ${WORKSPACE_VOLUME_ROOT:-/tmp/sandbox-workspaces}
+      # P3 (T040, R4)：compose_runner 的 cwd，容器内挂载点对应仓库根
+      WORKSPACE_COMPOSE_CWD: /workspace-compose
+    volumes:
+      # docker.sock：编排者身份。不可加 :ro——docker daemon 协议需写（建容器/网络/卷）。
+      # 安全靠 cap_drop ALL + 受信单机 + socket 文件权限（R4 Risks 表）。
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 仓库根只读挂载：compose_runner 读 docker-compose.workspace.yml.tmpl + envsubst 渲染
+      - .:/workspace-compose:ro
     depends_on:
       postgres: {condition: service_healthy}
-    networks: [orchestrator-net]
+    networks: [orchestrator-net, sandbox-launcher-net]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
       interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # P3 (T053, R5)：Launcher 统一入口（SPA 托管 + /api 反代 orchestrator + /ws/<slug>/ 反代 workspace）
+  launcher:
+    build:
+      context: ./launcher
+    image: sandbox/launcher:latest
+    ports:
+      - "${LAUNCHER_PORT:-8080}:80"
+    environment:
+      # nginx envsubst 渲染变量（见 launcher/nginx/launcher.conf.tmpl）
+      ORCH_URL: http://orchestrator:8000
+      ORCHESTRATOR_UPSTREAM: orchestrator:8000
+      LAUNCHER_PORT: "80"
+    depends_on:
+      orchestrator: {condition: service_healthy}
+    networks: [orchestrator-net, sandbox-launcher-net]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 3

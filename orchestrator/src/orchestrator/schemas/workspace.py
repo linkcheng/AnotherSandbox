@@ -16,6 +16,8 @@ class WorkspaceOut(BaseModel):
     slug: str
     name: str
     status: str
+    # P3 (FR-018)：启动失败摘要，nullable；成功或未启动时为 None。
+    error_message: str | None = None
     external_port: int
     compose_project: str
     created_at: datetime

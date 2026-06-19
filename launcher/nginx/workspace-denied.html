@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace 访问受限</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      padding: 2.5rem 3rem;
+      max-width: 480px;
+      text-align: center;
+    }
+    .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 0.75rem;
+      color: #1a1a1a;
+    }
+    p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #666;
+      margin: 0.5rem 0;
+    }
+    .reasons {
+      text-align: left;
+      background: #f9f9f9;
+      border-left: 3px solid #d0d0d0;
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .reasons ul {
+      margin: 0.25rem 0;
+      padding-left: 1.2rem;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.5rem;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #1d4ed8;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    <h1>无法访问该 Workspace</h1>
+    <p>请求未通过鉴权，可能的原因：</p>
+    <div class="reasons">
+      <ul>
+        <li>未登录或会话已过期（请重新登录）</li>
+        <li>无权访问该 workspace（不属于你的工作空间）</li>
+        <li>workspace 尚未启动或已停止</li>
+        <li>workspace 服务暂不可达（fail-closed，已拒绝请求以防穿透）</li>
+      </ul>
+    </div>
+    <p>如确认有访问权限仍无法打开，请稍后重试或联系管理员。</p>
+    <a class="btn" href="/">返回工作台</a>
+  </div>
+</body>
+</html>

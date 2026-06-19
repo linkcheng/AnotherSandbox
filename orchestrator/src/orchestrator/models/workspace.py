@@ -35,6 +35,8 @@ class Workspace(Base):
     owner_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="created", server_default=text("'created'"))
+    # P3 (FR-018)：启动失败时记录 compose stderr 摘要，供前端展示与排障。nullable。
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     compose_project: Mapped[str] = mapped_column(String(64), nullable=False)
     external_port: Mapped[int] = mapped_column(Integer, nullable=False)
     volume_path: Mapped[str] = mapped_column(Text, nullable=False)

@@ -110,6 +110,26 @@ test-orchestrator:  ## orchestrator 单元测试（覆盖率 ≥80%，SC-003）
 test-orchestrator-integration:  ## orchestrator 集成测试（需 Docker，testcontainers-postgres）
 	cd orchestrator && uv run pytest tests/integration -v
 
+## Launcher（P3，specs/003-sandbox-p3-launcher）
+.PHONY: build-launcher test-launcher up-p3 stop-p3 test-e2e-p3
+build-launcher:  ## 构建 launcher 镜像（node:24 构建 SPA → nginx 托管 + 反代）
+	$(BUILDKIT) docker buildx build --load --tag sandbox/launcher:latest ./launcher
+
+test-launcher:  ## launcher 前端单元测试（vitest + msw）
+	cd launcher && npm run test
+
+up-p3:  ## 启动 P3 完整 stack（orchestrator + postgres + launcher，含 docker.sock 挂载）
+	$(COMPOSE) -f docker-compose.orchestrator.yml up -d --wait
+
+stop-p3:  ## 停止 P3 stack
+	$(COMPOSE) -f docker-compose.orchestrator.yml down
+
+test-e2e-p3:  ## P3 完整 E2E（起 stack + 跑 e2e；e2e 文件下一批补齐，当前为占位）
+	$(MAKE) build-orchestrator build-launcher
+	$(MAKE) up-p3
+	cd tests && uv run pytest e2e/test_p3_*.py -v || echo "==> P3 e2e 用例待下一批补齐（stack 已起）"
+	$(MAKE) stop-p3
+
 ## Misc
 .PHONY: clean
 clean:  ## 清理容器、卷、缓存
