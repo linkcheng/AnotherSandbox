@@ -1,0 +1,65 @@
+# AI 个人沙箱 P2 —— workspace cap-nginx 配置（auth_request 鉴权）
+# 由 Orchestrator 在 workspace 启动时经 envsubst 渲染后挂载到 cap-nginx 容器。
+# research.md R4/R8, contracts/trusted-headers.md, contracts/cap-agent-auth-middleware.md
+#
+# 鉴权链：请求 → auth_request /_auth → Orchestrator /api/v1/verify
+#         → 回写 X-User-Id/X-Workspace-Id/X-Permissions → auth_request_set 捕获
+#         → proxy_set_header 覆盖注入 cap-agent（防外部伪造）。
+# fail-closed：Orchestrator 5xx/超时 → @auth_closed → 403（AUTH_FAILURE_MODE=fail-closed 默认）。
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' '';
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+    client_max_body_size 2g;
+
+    # ── auth_request 内部端点（不对外）──
+    location = /_auth {
+        internal;
+        proxy_pass http://host.docker.internal:${ORCH_PORT}/api/v1/verify;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Workspace-Id $http_x_workspace_id;
+    }
+
+    # fail-closed 分支
+    location @auth_closed {
+        internal;
+        return 403;
+    }
+
+    # ── /v1/ → cap-agent（鉴权 + 可信 header 透传）──
+    location /v1/ {
+        auth_request /_auth;
+        auth_request_set $x_user_id $upstream_http_x_user_id;
+        auth_request_set $x_workspace_id $upstream_http_x_workspace_id;
+        auth_request_set $x_permissions $upstream_http_x_permissions;
+        proxy_set_header X-User-Id $x_user_id;
+        proxy_set_header X-Workspace-Id $x_workspace_id;
+        proxy_set_header X-Permissions $x_permissions;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_pass http://cap-agent:9000;
+        error_page 500 502 503 504 = @auth_closed;
+    }
+
+    # ── 其余业务 location（同样 auth_request + fail-closed；MVP 最小集，模式相同）──
+    location /gui/ {
+        auth_request /_auth;
+        error_page 500 502 503 504 = @auth_closed;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_pass http://cap-agent:9000;
+    }
+
+    # /v1/health 经 cap-agent，但因 auth_request 公开路径由 cap-agent 中间件 PUBLIC_PATHS 放行；
+    # workspace 外部探活仍需 auth_request（未认证 → 401）。
+
+    # noVNC / terminal / code-server / jupyter / mcp 的 auth_request 接入在完整版补齐（模式同上）。
+}
