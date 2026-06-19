@@ -1,0 +1,180 @@
+# AI 个人沙箱 P2 —— Workspace 模板（参数化）
+# compose_runner 渲染：docker compose -p ${WORKSPACE_SLUG} --env-file <ws.env> -f docker-compose.workspace.yml.tmpl up -d --wait
+# ws.env 注入：WORKSPACE_SLUG / WS_NGINX_PORT / WORKSPACE_ID / WORKSPACE_VOLUME / AUTH_MODE / ORCHESTRATOR_URL / AUTH_FAILURE_MODE
+# research.md R2/R3, contracts/trusted-headers.md
+# 注：cap-nginx 的 auth_request 配置在 Phase 5（cap-nginx/nginx.workspace.conf.tmpl, T050）通过挂载注入；
+#     本模板 Phase 1-4 阶段 cap-nginx 沿用 P1 行为（AUTH_MODE 兼容），Phase 5 升级。
+name: ${WORKSPACE_SLUG}
+
+# YAML 锚点：所有容器统一加 host-gateway（R3，出站到 Orchestrator）
+x-extra-hosts: &extra_hosts
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
+networks:
+  sandbox-net:
+    driver: bridge
+
+volumes:
+  x11-unix:
+
+services:
+  cap-nginx:
+    image: sandbox/cap-nginx:latest
+    ports: ["${WS_NGINX_PORT}:80"]
+    depends_on:
+      cap-agent: {condition: service_healthy}
+      cap-browser: {condition: service_healthy}
+      cap-terminal: {condition: service_healthy}
+      cap-code: {condition: service_healthy}
+      cap-jupyter: {condition: service_healthy}
+      cap-mcp: {condition: service_healthy}
+    environment:
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      AUTH_FAILURE_MODE: ${AUTH_FAILURE_MODE:-fail-closed}
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://cap-agent:9000/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-agent:
+    image: sandbox/cap-agent:latest
+    expose: ["9000"]
+    environment:
+      CAP_AGENT_TERMINAL_URL: http://cap-terminal:7682
+      CAP_AGENT_BROWSER_CDP_URL: http://cap-browser:9222
+      CAP_AGENT_GUI_DISPLAY: ":1"
+      CAP_AGENT_AUTH_MODE: ${AUTH_MODE:-orchestrator}
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      WORKSPACE_ID: ${WORKSPACE_ID}
+    volumes:
+      - x11-unix:/tmp/.X11-unix:ro
+      - ${WORKSPACE_VOLUME}:/workspace:ro
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 384m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:9000/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-browser:
+    image: sandbox/cap-browser:latest
+    expose: ["9222", "6080"]
+    environment:
+      DISPLAY: ":1"
+      CHROMIUM_FLAGS: "--no-sandbox --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0"
+    volumes:
+      - x11-unix:/tmp/.X11-unix
+      - ${WORKSPACE_VOLUME}/.chromium:/workspace/.chromium:rw
+      - ${WORKSPACE_VOLUME}:/workspace:ro
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 2g
+    shm_size: 1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9222/json/version"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  cap-terminal:
+    image: sandbox/cap-terminal:latest
+    expose: ["7681", "7682"]
+    environment:
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      WORKSPACE_ID: ${WORKSPACE_ID}
+    volumes:
+      - ${WORKSPACE_VOLUME}/code:/workspace/code:ro
+      - ${WORKSPACE_VOLUME}/shared:/workspace/shared:ro
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 512m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:7682/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cap-code:
+    image: sandbox/cap-code:latest
+    expose: ["8081"]
+    volumes:
+      - ${WORKSPACE_VOLUME}/code:/workspace/code:rw
+      - ${WORKSPACE_VOLUME}/.vscode:/workspace/.vscode:rw
+      - ${WORKSPACE_VOLUME}/shared:/workspace/shared:ro
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  cap-jupyter:
+    image: sandbox/cap-jupyter:latest
+    expose: ["8888"]
+    volumes:
+      - ${WORKSPACE_VOLUME}/notebooks:/workspace/notebooks:rw
+      - ${WORKSPACE_VOLUME}/.jupyter:/workspace/.jupyter:rw
+      - ${WORKSPACE_VOLUME}/shared:/workspace/shared:rw
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 2g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/api/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  cap-mcp:
+    image: sandbox/cap-mcp:latest
+    expose: ["8940"]
+    environment:
+      CAP_MCP_TERMINAL_URL: http://cap-terminal:7682
+      CAP_MCP_BROWSER_CDP_URL: http://cap-browser:9222
+      CAP_MCP_AGENT_URL: http://cap-agent:9000
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL}
+      WORKSPACE_ID: ${WORKSPACE_ID}
+    volumes:
+      - ${WORKSPACE_VOLUME}/code:/workspace/code:ro
+      - ${WORKSPACE_VOLUME}/shared:/workspace/shared:ro
+    depends_on:
+      cap-agent: {condition: service_healthy}
+      cap-browser: {condition: service_healthy}
+      cap-terminal: {condition: service_healthy}
+    <<: *extra_hosts
+    networks: [sandbox-net]
+    mem_limit: 768m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8940/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

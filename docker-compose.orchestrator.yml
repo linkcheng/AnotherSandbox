@@ -1,0 +1,60 @@
+# AI 个人沙箱 P2 —— Orchestrator 编排层
+# Orchestrator 服务 + PostgreSQL 元数据库
+# specs/002-sandbox-p2-orchestrator/plan.md FR-001/007, research.md R3
+# 用法：make up-orchestrator
+name: orchestrator
+
+networks:
+  orchestrator-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: orchestrator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orchestrator}
+      POSTGRES_DB: orchestrator
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [orchestrator-net]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orchestrator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orchestrator:
+    build: ./orchestrator
+    image: sandbox/orchestrator:latest
+    ports:
+      - "${ORCH_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orchestrator:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/orchestrator
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      JWT_ALG: ${JWT_ALG:-HS256}
+      ACCESS_TOKEN_TTL_MIN: ${ACCESS_TOKEN_TTL_MIN:-15}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
+      WORKSPACE_PORT_START: ${WORKSPACE_PORT_START:-8100}
+      WORKSPACE_PORT_END: ${WORKSPACE_PORT_END:-8199}
+      WORKSPACE_RETENTION_DAYS: ${WORKSPACE_RETENTION_DAYS:-7}
+      AUTH_FAILURE_MODE: ${AUTH_FAILURE_MODE:-fail-closed}
+      ORCH_URL: http://localhost:${ORCH_PORT:-8000}
+      WORKSPACE_VOLUME_ROOT: ${WORKSPACE_VOLUME_ROOT:-/tmp/sandbox-workspaces}
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [orchestrator-net]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
