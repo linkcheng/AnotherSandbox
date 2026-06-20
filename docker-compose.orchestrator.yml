@@ -87,11 +87,12 @@ services:
     depends_on:
       orchestrator: {condition: service_healthy}
     networks: [orchestrator-net, sandbox-launcher-net]
-    cap_drop: [ALL]
+    # nginx master 需 chown cache + setuid worker，不适用 cap_drop ALL（同 postgres gosu）；
+    # launcher 仅反代不持密钥，纵深防御靠 no-new-privileges + 受信单机。
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

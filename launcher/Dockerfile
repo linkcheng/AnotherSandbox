@@ -20,6 +20,9 @@ FROM nginx:1.27-alpine AS runtime
 # bash（entrypoint 用）+ gettext（envsubst）。wget 已在 nginx:alpine。
 RUN apk add --no-cache bash gettext
 
+# 删除 nginx 自带默认 server（listen 80 + location / → html），避免与 launcher.conf
+# 的 server 冲突（两者都 listen 80 + location /，default.conf 会抢占 /api 等请求 → 404）
+RUN rm -f /etc/nginx/conf.d/default.conf
 COPY nginx/launcher.conf.tmpl /etc/nginx/templates/launcher.conf.tmpl
 # P3 (T048)：降级页放 nginx html 根（launcher.conf.tmpl 的 error_page 指向 /workspace-denied.html）
 COPY nginx/workspace-denied.html /usr/share/nginx/html/workspace-denied.html

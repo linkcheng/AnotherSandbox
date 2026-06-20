@@ -17,13 +17,16 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 async def get_current_user(
+    request: Request,
     token: str | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    if not token:
+    # P3：浏览器经 HttpOnly cookie 携带（R3）；Bearer（CLI）优先，cookie 为补充分支（零迁移）
+    tok = token or request.cookies.get("access_token")
+    if not tok:
         raise HTTPException(status_code=401, detail={"error": {"code": "unauthorized"}})
     try:
-        payload = decode_token(token)
+        payload = decode_token(tok)
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail={"error": {"code": "unauthorized"}})
     if payload.get("type") != "access":
