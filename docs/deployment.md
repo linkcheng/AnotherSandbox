@@ -98,7 +98,44 @@ tar -czf workspace-$(date +%Y%m%d).tar.gz -C "$WORKSPACE_DIR" .
 
 ⚠️ **P1 不适合公网部署**：无应用层认证（`AUTH_MODE=none`）、Chromium `--no-sandbox`、无审计落库。
 
-公网部署需 P2 Orchestrator（JWT 校验 + workspace 权限 + 应用层认证中间件）。详见 `.archive/sandbox-design.md` §1.1.2 P1→P2 切换原则。
+公网部署需 P2 Orchestrator（JWT 校验 + workspace 权限 + 应用层认证中间件）+ P3 launcher（统一入口 + OAuth 登录）。详见 `.archive/sandbox-design.md` §1.1.2 P1→P2 切换原则。
+
+## P2 + P3 部署（多租户 + React 启动器）
+
+P2/P3 是 P1 之上的**可选叠加层**。P2 引入 Orchestrator（多 workspace 编排 + JWT + 审计），P3 在 P2 之上引入 launcher（React 启动器 + OAuth 登录 + 统一反代 `/ws/{slug}/`）并补齐 workspace 真实启动。P1 单 workspace 模式仍独立可用（零迁移）。
+
+```bash
+# 1. 前置：P1 镜像已构建（make build），用于 workspace 容器组
+# 2. 构建 P2/P3 镜像
+make build-orchestrator build-launcher
+
+# 3. 配置 .env（OAuth 凭证；开发用 mock）
+#    OAUTH_MOCK=true                      # 离线闭环（生产须 false + 真实 client_id/secret）
+#    OAUTH_GITHUB_CLIENT_ID/SECRET=...    # GitHub OAuth App
+#    OAUTH_GOOGLE_CLIENT_ID/SECRET=...    # Google OAuth App
+#    LAUNCHER_PORT=8080
+
+# 4. 启动 P3 stack（orchestrator + postgres + launcher，含 docker.sock 挂载）
+make up-p3
+curl http://localhost:8000/readyz        # {"status":"ready","db":"ok"}
+curl http://localhost:8080/              # launcher 登录页（SPA）
+
+# 5. OAuth 登录：浏览器访问 http://localhost:8080/ → 「GitHub 登录」→ 工作台
+#    （OAUTH_MOCK=true 时离线闭环；curl 验证：curl -c cookies.txt -L localhost:8080/api/v1/auth/oauth/github/login）
+
+# 6. 创建并启动 workspace（launcher UI 或 API）→ orchestrator 真实拉起 cap-* 容器组
+#    经统一入口访问 workspace UI：http://localhost:8080/ws/{slug}/
+
+make stop-p3                             # 停止 P3 stack（保留 postgres 数据卷）
+```
+
+**关键差异（vs P1）**：
+- **orchestrator 挂载 `/var/run/docker.sock`**（orchestrator-as-controller，编排 workspace 容器组）—— 单机受信环境，`cap_drop: [ALL]` + socket 文件权限（P3 research.md R4）。这是 P3 唯一新提权面，公网部署须改远程编排 API。
+- **launcher 容器内 nginx** 托管 SPA + 反代 `/api`（orchestrator）+ `/ws/{slug}/`（workspace，auth_request 鉴权 + WebSocket 透传）。
+- **OAuth 凭证**经环境变量注入，不落库/不进前端；`OAUTH_MOCK=true` 用于离线/CI 闭环测试。
+- **JWT cookie 鉴权**（HttpOnly + SameSite=Lax）：launcher 浏览器经 cookie，CLI 经 Bearer（并存，零迁移）。
+
+详见 [P3 验证手册](../specs/003-sandbox-p3-launcher/quickstart.md)（8 场景）与 [架构总览 §P3](./architecture.md)。
 
 ## 参考文档
 
