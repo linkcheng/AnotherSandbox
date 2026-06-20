@@ -6,8 +6,6 @@
 
 **Status**: Draft
 
-**Source**: `.archive/sandbox-design.md`（4331 行设计文档 §1–§18）
-
 **Input**: 在本地单机受信环境部署一个 AI 与人类共享的 Linux 沙箱运行时。覆盖 4 个 base 镜像 + 7 个 cap-* 服务，全部以 TDD（Unit + Integration + 镜像 E2E）落地。P1 不引入多租户/应用层认证/公网部署。
 
 ## User Scenarios & Testing *(mandatory)*

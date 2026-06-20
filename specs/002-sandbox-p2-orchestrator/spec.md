@@ -6,9 +6,7 @@
 
 **Status**: Draft
 
-**Source**: `.archive/sandbox-design.md` §8（多租户 / Orchestrator）、§8.6（认证与鉴权）、§8.8（Orchestrator 层）、§9.3（Orchestrator API）、§11（安全基线）
-
-**Input**: 在 P1 单 workspace 沙箱（`specs/001-sandbox-p1-stack`，已交付）之上叠加 Orchestrator 层（独立 Python 服务，FastAPI + PostgreSQL），实现多租户 workspace 生命周期编排、JWT 统一认证、跨 workspace 元数据管理与审计落库。P2 是"可选叠加层"——叠加在 sandbox 之上，不侵入 workspace 内部业务代码（§8.8.5 不变量）。
+**Input**: 在 P1 单 workspace 沙箱（`specs/001-sandbox-p1-stack`，已交付）之上叠加 Orchestrator 层（独立 Python 服务，FastAPI + PostgreSQL），实现多租户 workspace 生命周期编排、JWT 统一认证、跨 workspace 元数据管理与审计落库。P2 是"可选叠加层"——叠加在 sandbox 之上，不侵入 workspace 内部业务代码。
 
 **范围决策（已与 stakeholder 确认）**：
 - **做（核心 MVP）**：① workspace 生命周期编排（`docker compose -p`）② PostgreSQL 元数据 ③ JWT 自建账户认证 + 可信 header 注入 ④ 审计落库 ⑤ cap-agent 认证中间件扩展（P1→P2 零迁移）⑥ CLI + OpenAPI

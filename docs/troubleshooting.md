@@ -162,6 +162,5 @@ docker compose exec cap-agent bash -c "echo DISPLAY=\$DISPLAY && ls /tmp/.X11-un
 ## 联系
 
 未列入的问题：
-1. 查 `.archive/sandbox-design.md` 设计原文
-2. 查 `specs/001-sandbox-p1-stack/` 规格与契约
-3. 提 issue 到仓库
+1. 查 `specs/001-sandbox-p1-stack/` 规格与契约
+2. 提 issue 到仓库

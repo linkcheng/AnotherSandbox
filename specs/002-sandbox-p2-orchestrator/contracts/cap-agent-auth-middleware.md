@@ -1,7 +1,7 @@
 # Contract: cap-agent Auth Middleware（AUTH_MODE 双模式）
 
 **Date**: 2026-06-19
-**Source**: [spec.md](../spec.md) FR-014/022/023 · [research.md](../research.md) R8 · `.archive/sandbox-design.md` §4.8.6 / §8.6.4
+**Source**: [spec.md](../spec.md) FR-014/022/023 · [research.md](../research.md) R8
 
 定义 cap-agent 的认证中间件契约——通过 `AUTH_MODE` 环境变量在 P1（`none`）与 P2（`orchestrator`）之间切换，**业务路由代码零改动**（FR-023 / SC-006）。本契约约束中间件的接口、两种模式行为、与可信 header 的关系。
 
@@ -128,4 +128,3 @@ app.add_middleware(<由 AUTH_MODE 决定的具体子类>)
 - spec.md：FR-014（中间件）/FR-022（P1 独立可用）/FR-023（业务路由零改动）/SC-006
 - research.md：R8（可信 header 透传）
 - trusted-headers.md：§4 防伪造不变量、§5 P1 兼容
-- `.archive/sandbox-design.md` §4.8.6（AUTH_MODE 环境变量切换）、§8.6.4（Phase 演进不变量）

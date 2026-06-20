@@ -4,8 +4,6 @@
 
 **Input**: Feature specification from `/specs/001-sandbox-p1-stack/spec.md`
 
-**Source**: `.archive/sandbox-design.md` §1–§18
-
 ## Summary
 
 在本地单机受信环境部署一个 AI 与人类共享的 Linux 沙箱运行时。覆盖 4 个 base 镜像 + 7 个 cap-* 服务，全部以 TDD（Unit + Integration + 镜像 E2E）落地。P1 不引入多租户/应用层认证/公网部署。技术栈：Python 3.12 + uv + FastAPI + docker compose + Nginx。开发从 cap-agent 起步（业务优先），先 TDD 打通业务编排，再向上扩展到 cap-mcp/cap-terminal/cap-browser/cap-nginx，最后接入 cap-code/cap-jupyter 并跑完整 E2E。
@@ -165,7 +163,7 @@ sandbox/                                  # 仓库根
 │   ├── conftest.py                       # httpx client → http://localhost
 │   └── pyproject.toml
 └── docs/
-    ├── architecture.md                   # 引用 .archive/sandbox-design.md
+    ├── architecture.md                   # 架构总览
     ├── deployment.md                     # 部署手册
     └── troubleshooting.md
 ```

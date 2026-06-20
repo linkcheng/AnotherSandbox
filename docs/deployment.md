@@ -98,7 +98,7 @@ tar -czf workspace-$(date +%Y%m%d).tar.gz -C "$WORKSPACE_DIR" .
 
 ⚠️ **P1 不适合公网部署**：无应用层认证（`AUTH_MODE=none`）、Chromium `--no-sandbox`、无审计落库。
 
-公网部署需 P2 Orchestrator（JWT 校验 + workspace 权限 + 应用层认证中间件）+ P3 launcher（统一入口 + OAuth 登录）。详见 `.archive/sandbox-design.md` §1.1.2 P1→P2 切换原则。
+公网部署需 P2 Orchestrator（JWT 校验 + workspace 权限 + 应用层认证中间件）+ P3 launcher（统一入口 + OAuth 登录）。
 
 ## P2 + P3 部署（多租户 + React 启动器）
 
@@ -142,4 +142,3 @@ make stop-p3                             # 停止 P3 stack（保留 postgres 数
 - [架构总览](./architecture.md)
 - [故障排查](./troubleshooting.md)
 - [端到端验证手册](../specs/001-sandbox-p1-stack/quickstart.md)
-- [设计原文](../.archive/sandbox-design.md)

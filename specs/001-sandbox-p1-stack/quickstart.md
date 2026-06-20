@@ -1,7 +1,7 @@
 # Quickstart: AI 个人沙箱 P1 全栈端到端验证
 
 **Date**: 2026-06-18
-**Source**: [spec.md](./spec.md) SC-001 ~ SC-008 · [plan.md](./plan.md) M0 ~ M9 · `.archive/sandbox-design.md` §18
+**Source**: [spec.md](./spec.md) SC-001 ~ SC-008 · [plan.md](./plan.md) M0 ~ M9
 
 本手册指导如何从零启动整套 P1 沙箱并执行端到端验证。**不含实现代码**，仅是 run guide 与故障排查。所有命令在仓库根目录执行。
 
@@ -376,4 +376,3 @@ docker compose restart cap-terminal cap-mcp   # 多个
 
 - spec.md：SC-001 ~ SC-008（成功标准）、User Story 1 ~ 6（验收场景）
 - plan.md：M0 ~ M9 milestone
-- `.archive/sandbox-design.md` §18（测试策略）、§12（docker-compose）

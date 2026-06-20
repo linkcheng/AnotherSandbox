@@ -1,7 +1,7 @@
 # Research: AI 个人沙箱 P2 — Orchestrator 编排与认证层
 
 **Date**: 2026-06-19
-**Source**: [spec.md](./spec.md) · [plan.md](./plan.md) · `.archive/sandbox-design.md` §8 / §8.6 / §8.8 / §9.3 / §11
+**Source**: [spec.md](./spec.md) · [plan.md](./plan.md)
 
 本文档解决 plan.md Technical Context 的 4 项待定技术决策（R1-R4），并记录 5 项关键技术/库选型（R5-R9）。每项给出 **Decision / Rationale / Alternatives**。
 

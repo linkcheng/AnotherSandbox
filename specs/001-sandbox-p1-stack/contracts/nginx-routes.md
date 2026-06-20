@@ -1,7 +1,7 @@
 # Contract: cap-nginx 路由表
 
 **Date**: 2026-06-18
-**Source**: [spec.md](../spec.md) FR-005, FR-014, FR-015 · [research.md](../research.md) R6 · `.archive/sandbox-design.md` §4.2
+**Source**: [spec.md](../spec.md) FR-005, FR-014, FR-015 · [research.md](../research.md) R6
 
 cap-nginx 是唯一对外 HTTP 入口（设计原则五，FR-005），监听端口 80（可通过 `PORT` 切换）。所有外部请求经 nginx 反代到 sandbox-net 内的 cap-* 服务。本文档定义每个 location 块的路由契约与配置要点。
 
@@ -371,4 +371,3 @@ nginx 自身错误（非上游）：
 
 - spec.md：FR-005（nginx 唯一对外端口）、FR-014（路由前缀表）、FR-015（WebSocket 升级）
 - research.md：R6（nginx 单文件 + WS 升级配置）
-- `.archive/sandbox-design.md` §4.2（cap-nginx 职责）、§12（docker-compose 编排）

@@ -275,7 +275,7 @@
 **关联 FR**: FR-029~FR-032、SC-001~SC-008
 
 - [ ] T086 [P] 实现 `Makefile` 的 `test-e2e` 目标：`docker compose up -d --wait && pytest tests/e2e`（FR-031、SC-004）
-- [ ] T087 [P] 编写 `docs/architecture.md`：引用 `.archive/sandbox-design.md` §1-§18，绘制服务依赖图与挂载矩阵
+- [ ] T087 [P] 编写 `docs/architecture.md`：绘制服务依赖图与挂载矩阵
 - [ ] T088 [P] 编写 `docs/deployment.md`：从 quickstart.md 提炼的部署手册，含 macOS/Linux 差异、端口冲突排查
 - [ ] T089 [P] 编写 `docs/troubleshooting.md`：常见问题（Chromium no-sandbox、libtmux 版本、bind mount 慢、WS 升级失败）
 - [ ] T090 [P] 安全 hardening 审计：核对 FR-007（cap_drop）、FR-008（mem_limit）、FR-012（挂载矩阵）在 docker-compose.yml 全部生效

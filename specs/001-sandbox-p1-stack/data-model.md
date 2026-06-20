@@ -1,7 +1,7 @@
 # Data Model: AI 个人沙箱 P1 全栈
 
 **Date**: 2026-06-18
-**Source**: [spec.md](./spec.md) · [plan.md](./plan.md) · [research.md](./research.md) · `.archive/sandbox-design.md` §4, §5, §7, §8
+**Source**: [spec.md](./spec.md) · [plan.md](./plan.md) · [research.md](./research.md)
 
 本文档定义 P1 阶段所有跨服务共享的核心实体与数据结构。P1 不引入数据库，这些实体是**契约形状（shape）**，由 Pydantic v2 模型在 cap-agent / cap-terminal / cap-mcp 中实现。每个实体给出：字段（中文描述）+ 类型 + 示例 + 关联实体。
 

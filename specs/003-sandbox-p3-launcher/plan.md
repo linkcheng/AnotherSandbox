@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `/specs/003-sandbox-p3-launcher/spec.md`
 
-**Source**: `.archive/sandbox-design.md`（React 启动器 / SSO 相关章节）、P2 spec `FR-NI-3`/`FR-NI-6`（推迟项）、P2 已交付内核（compose_runner / JWT / auth_request / 审计）
+**Source**: P2 spec `FR-NI-3`/`FR-NI-6`（推迟项）、P2 已交付内核（compose_runner / JWT / auth_request / 审计）
 
 ## Summary
 

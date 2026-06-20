@@ -1,7 +1,7 @@
 # Contract: cap-terminal shell-exec-api
 
 **Date**: 2026-06-18
-**Source**: [spec.md](../spec.md) FR-020, FR-021 · [data-model.md](../data-model.md) §5, §7 · [research.md](../research.md) R3 · `.archive/sandbox-design.md` §5
+**Source**: [spec.md](../spec.md) FR-020, FR-021 · [data-model.md](../data-model.md) §5, §7 · [research.md](../research.md) R3
 
 cap-terminal 容器同时承载两个 HTTP 服务：
 - **ttyd**（端口 7681）：Web Terminal WebSocket，供人类通过 `/terminal/` 交互
@@ -221,4 +221,3 @@ curl -X POST http://cap-terminal:7682/api/v1/exec \
 - spec.md：FR-020（shell-exec-api 端点）、FR-021（libtmux + 固定 session）
 - research.md：R3（libtmux + 固定 session 名 `sandbox`、同步阻塞、交互模式）
 - data-model.md：§5（Tmux Session 模型）、§7（Shell Exec Request/Response）
-- `.archive/sandbox-design.md` §5（Shell Exec API 详细设计）

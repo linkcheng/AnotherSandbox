@@ -14,8 +14,6 @@
 - **共享语义**：Human 与 AI Agent 共享同一 Chromium（CDP）与 tmux session（libtmux）
 - **多租户（P2）**：Orchestrator 编排多 workspace，JWT 认证 + 可信 header + 审计落库
 
-详细设计见 [`.archive/sandbox-design.md`](.archive/sandbox-design.md)（4331 行）。
-
 ---
 
 ## 三阶段架构
@@ -163,7 +161,7 @@ make test-launcher / test-e2e-p3
 
 **P3**：[spec](specs/003-sandbox-p3-launcher/spec.md) · [plan](specs/003-sandbox-p3-launcher/plan.md) · [research](specs/003-sandbox-p3-launcher/research.md)（9 决策）· [quickstart](specs/003-sandbox-p3-launcher/quickstart.md)（8 场景）· [tasks](specs/003-sandbox-p3-launcher/tasks.md) · [contracts](specs/003-sandbox-p3-launcher/contracts/)（oauth-rest-api / launcher-workspace-proxy / frontend-api-contract）
 
-通用：[架构 docs/architecture.md](docs/architecture.md) · [部署 docs/deployment.md](docs/deployment.md) · [故障 docs/troubleshooting.md](docs/troubleshooting.md) · [设计原文 .archive/sandbox-design.md](.archive/sandbox-design.md)
+通用：[架构 docs/architecture.md](docs/architecture.md) · [部署 docs/deployment.md](docs/deployment.md) · [故障 docs/troubleshooting.md](docs/troubleshooting.md)
 
 ---
 
@@ -177,8 +175,6 @@ make test-launcher / test-e2e-p3
 - ⚠️ **docker.sock 挂载**：orchestrator 容器挂载 `/var/run/docker.sock` 以真实拉起 workspace 容器组（orchestrator-as-controller，research.md R4）。这是已知提权面——限定**单机受信环境**部署，orchestrator 保留 `cap_drop: [ALL]` + `no-new-privileges`，socket 访问仅靠文件权限。公网/多租户共享宿主前须改用远程编排 API（超 P3 范围）。
 - OAuth 凭证（`OAUTH_GITHUB_*` / `OAUTH_GOOGLE_*`）仅后端 env，不下发前端；JWT 存 HttpOnly + Secure + SameSite=Lax cookie 防 XSS/CSRF（research.md R3）。
 - `OAUTH_MOCK=true` 仅开发/测试用，**生产必须 false**（fail-fast）。
-
-详见 [`.archive/sandbox-design.md` §1.1.2 / §8.6 / §11](.archive/sandbox-design.md)。
 
 ---
 

@@ -31,7 +31,6 @@
 
 ## Notes
 
-- 设计文档 `.archive/sandbox-design.md` 已包含完整 P1/P2 边界、API 契约、挂载矩阵，spec 忠实引用而不重复。
 - 部分技术细节（端口、Dockerfile FROM、libtmux）作为可测试的契约出现在 FR 中，因其本身就是用户可观察的接口边界，不属于"实现细节"。
 - P1 不实现项（FR-NI-*）显式列出，避免后续误判范围。
 - spec 已包含 7 个用户故事 + 6 个 P1 不做项 + 32 条 FR + 8 条 SC，覆盖度足够进入 `/speckit-plan`。

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Source**: `.archive/sandbox-design.md`（React 启动器 / SSO 认证相关章节）、P2 spec `FR-NI-3`（React 启动器 UI 推迟）/ `FR-NI-6`（SSO/OAuth 推迟）
+**Source**: P2 spec `FR-NI-3`（React 启动器 UI 推迟）/ `FR-NI-6`（SSO/OAuth 推迟）
 
 **Input**: 在 P1（单 workspace 全栈能力，`specs/001`）+ P2（Orchestrator 编排 + JWT 认证 + 审计，`specs/002`）之上，交付 P2 明确推迟的两项：① React 启动器 UI（workspace 列表 / 创建向导 / 监控面板）② SSO/OAuth（GitHub + Google）认证。同时补齐 P2 遗留的「workspace 真实启动部署闭环」。P3 是叠加层——不侵入 P1 workspace 内业务路由、不改动 P2 编排内核与 JWT/auth_request/审计契约，仅做**新增式扩展**（OAuth 身份源 + 前端 + 部署补齐 + 反代入口）。
 

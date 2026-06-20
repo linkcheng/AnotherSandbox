@@ -1,7 +1,7 @@
 # 架构总览
 
 **Date**: 2026-06-18
-**Source**: `.archive/sandbox-design.md` §1–§18、`specs/001-sandbox-p1-stack/`
+**Source**: `specs/001-sandbox-p1-stack/`
 
 ## 三层体系
 
@@ -32,8 +32,6 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-详细设计见 `.archive/sandbox-design.md` §2。
-
 ## 服务依赖与挂载矩阵
 
 | 服务 | 端口 | 依赖 | rw 挂载 | ro 挂载 |
@@ -45,8 +43,6 @@
 | cap-code | 8081 expose | — | `/workspace/{code,.vscode}` rw | `/workspace/shared` ro |
 | cap-jupyter | 8888 expose | — | `/workspace/{notebooks,.jupyter,shared}` rw | — |
 | cap-mcp | 8940 expose | agent/browser/terminal healthy | — | `/workspace/{code,shared}` ro |
-
-挂载矩阵出自 `.archive/sandbox-design.md` §7.2（设计原则二）。
 
 ## 数据流（典型调用）
 

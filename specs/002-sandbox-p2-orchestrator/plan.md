@@ -4,8 +4,6 @@
 
 **Input**: Feature specification from `/specs/002-sandbox-p2-orchestrator/spec.md`
 
-**Source**: `.archive/sandbox-design.md` §8（多租户/Orchestrator）、§8.6（认证）、§8.8（Orchestrator 层）、§9.3（Orchestrator API）、§11（安全基线）
-
 ## Summary
 
 在 P1 单 workspace 沙箱之上叠加 **Orchestrator**——一个独立 Python 服务（FastAPI + PostgreSQL + Alembic + SQLAlchemy），承担三层职责：① 编排（workspace 生命周期，通过 `docker compose -p {ws}` 驱动复用的 P1 镜像）② 元数据（PostgreSQL：users / workspaces / workspace_owners / templates / audit_logs）③ 入口（JWT 自建账户认证 + 可信 header 注入 + CLI + OpenAPI）。Orchestrator 是"可选叠加层"，不侵入 workspace 内业务代码（§8.8.5 不变量）；P1 单 workspace 模式仍独立可用。

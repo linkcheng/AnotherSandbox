@@ -1,7 +1,7 @@
 # Data Model: AI 个人沙箱 P2 — Orchestrator 编排与认证层
 
 **Date**: 2026-06-19
-**Source**: [spec.md](./spec.md) · [plan.md](./plan.md) · [research.md](./research.md) · `.archive/sandbox-design.md` §8.8.4（schema 草案）/ §8.8.6（审计查询）
+**Source**: [spec.md](./spec.md) · [plan.md](./plan.md) · [research.md](./research.md)
 
 本文档定义 P2 Orchestrator 的 PostgreSQL schema、SQLAlchemy ORM 映射、Alembic 迁移设计与关键查询。P2 在 §8.8.4 草案基础上补全字段、约束、索引，并新增 `refresh_tokens` 表（R5：refresh token 存库可吊销）。共 **6 张表**（spec FR-008 要求"至少 5 张"）。
 

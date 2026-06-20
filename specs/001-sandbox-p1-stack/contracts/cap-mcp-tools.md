@@ -1,7 +1,7 @@
 # Contract: cap-mcp MCP Tools
 
 **Date**: 2026-06-18
-**Source**: [spec.md](../spec.md) FR-026, FR-027, FR-028 · [data-model.md](../data-model.md) §3 · [research.md](../research.md) R2, R4 · `.archive/sandbox-design.md` §4.7
+**Source**: [spec.md](../spec.md) FR-026, FR-027, FR-028 · [data-model.md](../data-model.md) §3 · [research.md](../research.md) R2, R4
 
 cap-mcp 基于 **fastmcp**（Streamable HTTP 传输）暴露 MCP server（FR-026），监听端口 8940，路径 `/mcp/sandbox/`。本文档定义所有 MCP 工具的 JSON Schema、转发目标与错误码。
 
@@ -488,4 +488,3 @@ cap-mcp 在 `initialize` 握手时读取（User Story 7）：
 - spec.md：FR-026（Streamable HTTP）、FR-027（工具清单）、FR-028（转发目标）、FR-013（AGENTS.md 注入）
 - research.md：R2（fastmcp 选型）、R4（playwright CDP）
 - data-model.md：§3（MCP Tool 实体）
-- `.archive/sandbox-design.md` §4.7（cap-mcp 职责）

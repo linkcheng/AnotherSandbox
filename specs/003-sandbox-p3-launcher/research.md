@@ -2,7 +2,7 @@
 
 **Date**: 2026-06-20 | **Spec**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md)
 
-Phase 0 技术决策论证。每项含 **Decision / Rationale / Alternatives**。来源：`.archive/sandbox-design.md`、P2 已交付内核、行业最佳实践。
+Phase 0 技术决策论证。每项含 **Decision / Rationale / Alternatives**。来源：P2 已交付内核、行业最佳实践。
 
 ---
 

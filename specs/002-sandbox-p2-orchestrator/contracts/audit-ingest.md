@@ -1,7 +1,7 @@
 # Contract: Audit Ingest（cap-* → Orchestrator）
 
 **Date**: 2026-06-19
-**Source**: [spec.md](../spec.md) FR-016/017/018 · [research.md](../research.md) R9 · `.archive/sandbox-design.md` §8.8.6
+**Source**: [spec.md](../spec.md) FR-016/017/018 · [research.md](../research.md) R9
 
 workspace 内 cap-terminal / cap-mcp / cap-agent 在关键操作后，经 HTTP 把结构化事件上报到 Orchestrator 写入 `audit_logs`。本契约定义事件结构、端点、best-effort 语义。
 
@@ -120,4 +120,3 @@ class AuditClient:
 - spec.md：FR-016/017/018/019
 - research.md：R9（best-effort 机制）
 - data-model.md：§2.5 audit_logs schema、§5.4/5.6 查询/写入
-- `.archive/sandbox-design.md` §8.8.6（审计归 Orchestrator）

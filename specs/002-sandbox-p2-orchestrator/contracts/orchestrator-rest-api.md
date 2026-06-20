@@ -1,7 +1,7 @@
 # Contract: Orchestrator REST API
 
 **Date**: 2026-06-19
-**Source**: [spec.md](../spec.md) FR-001~023 · [research.md](../research.md) R5/R7/R8 · `.archive/sandbox-design.md` §9.3
+**Source**: [spec.md](../spec.md) FR-001~023 · [research.md](../research.md) R5/R7/R8
 
 Orchestrator 暴露的 REST API（FastAPI 自动生成 OpenAPI，`/docs` Swagger UI）。分 4 组：认证、workspace 生命周期、审计、内部 verify。所有时间 ISO 8601 UTC。示例 ID 均为虚构。
 
@@ -186,4 +186,3 @@ Orchestrator 暴露的 REST API（FastAPI 自动生成 OpenAPI，`/docs` Swagger
 ## 引用
 - spec.md：FR-001~023（编排/元数据/认证/审计/入口）
 - research.md：R2（端口）、R5（JWT）、R7（compose_runner）、R8（auth_request）
-- `.archive/sandbox-design.md` §9.3（Orchestrator API 草案）、§8.5（状态机）、§8.6.2（认证流程）

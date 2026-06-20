@@ -2,7 +2,6 @@
 
 **Date**: 2026-06-18
 **Status**: Complete
-**Source**: `.archive/sandbox-design.md` §1–§18
 
 本文档记录 P1 全栈实施前的技术选型与不确定项研究结论。所有"NEEDS CLARIFICATION"在 spec 阶段已通过用户确认闭合，本文件聚焦"如何实施"层面的决策与替代方案。
 
@@ -257,16 +256,3 @@ location /mcp/sandbox/ {
 ## 未决问题（已在 spec 阶段闭合）
 
 无遗留 NEEDS CLARIFICATION。所有关键决策在 spec.md 与本文件中已固化。
-
----
-
-## 引用
-
-- `.archive/sandbox-design.md` §1.1.2 能力矩阵（P1/P2 边界）
-- `.archive/sandbox-design.md` §3 Layer 层（镜像继承）
-- `.archive/sandbox-design.md` §4 Capability 层（7 服务职责）
-- `.archive/sandbox-design.md` §5 Shell Exec API（libtmux 设计）
-- `.archive/sandbox-design.md` §7 Profile 层（挂载矩阵）
-- `.archive/sandbox-design.md` §11 安全基线
-- `.archive/sandbox-design.md` §12 docker-compose 编排
-- `.archive/sandbox-design.md` §18 测试策略
